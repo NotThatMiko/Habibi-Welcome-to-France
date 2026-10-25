@@ -1,4 +1,5 @@
 import { getState } from './store.js';
+import { recordedAudio } from './audio-manifest.js';
 
 export const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 export const loc = (fr, ar, darija) => ({ fr, ar, darija });
@@ -45,17 +46,75 @@ export function toast(fr, ar, darija) {
 }
 
 let voices = [];
-const loadVoices = () => { voices = window.speechSynthesis?.getVoices() || []; };
+let recordedPlayer, activeUtterance;
+let playbackRequest = 0;
+let preferRecordings = false;
+const loadVoices = () => {
+  try { voices = window.speechSynthesis?.getVoices() || []; }
+  catch { voices = []; }
+};
 loadVoices();
 window.speechSynthesis?.addEventListener('voiceschanged', loadVoices);
-export function speak(text) {
-  if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
-    toast('L’audio n’est pas disponible dans ce navigateur.', 'الصوت غير متاح في هذا المتصفح.', 'Ssot ma khddamch f had navigateur.'); return;
+
+export function stopAudio() {
+  playbackRequest++;
+  if (activeUtterance) activeUtterance.onerror = null;
+  activeUtterance = null;
+  try { window.speechSynthesis?.cancel(); } catch { /* Some browsers expose an incomplete speech API. */ }
+  if (recordedPlayer) {
+    recordedPlayer.onerror = null;
+    recordedPlayer.pause();
+    recordedPlayer.removeAttribute('src');
+    recordedPlayer.load();
   }
-  loadVoices(); window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(String(text)); utterance.lang = 'fr-FR'; utterance.rate = 0.78; utterance.pitch = 1;
+}
+
+function playRecording(text, request) {
+  const filename = recordedAudio[text];
+  if (typeof filename !== 'string') return false;
+  recordedPlayer ||= new Audio();
+  recordedPlayer.preload = 'none';
+  const failed = error => {
+    if (request !== playbackRequest || error?.name === 'AbortError') return;
+    if (error?.name === 'NotAllowedError') {
+      toast('Touche à nouveau le haut-parleur pour écouter.', 'اضغط على مكبر الصوت مرة أخرى للاستماع.', '3awed dghat 3la ssot bach tsme3.');
+    } else {
+      toast('Impossible de charger l’audio. Vérifie ta connexion, puis réessaie.', 'تعذّر تحميل الصوت. تحقّق من اتصالك ثم حاول مجددًا.', 'Ma qdernach nchargiw ssot. Chouf connexion w 3awed.');
+    }
+  };
+  recordedPlayer.onerror = () => failed(recordedPlayer.error);
+  recordedPlayer.src = new URL(`../assets/audio/fr/${filename}`, import.meta.url).href;
+  // Start directly in the click handler, preserving the mobile user gesture.
+  try { recordedPlayer.play()?.catch(failed); } catch (error) { failed(error); }
+  return true;
+}
+
+function unavailable() {
+  toast('L’audio de ce texte n’est pas disponible sur cet appareil.', 'صوت هذا النص غير متاح على هذا الجهاز.', 'Ssot dyal had nss ma kaynch f had appareil.');
+}
+
+export function speak(text) {
+  text = String(text).normalize('NFC').replace(/\s+/g, ' ').trim();
+  stopAudio();
+  if (!text) return;
+  const request = playbackRequest;
+  if (preferRecordings && playRecording(text, request)) return;
+  if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+    if (!playRecording(text, request)) unavailable();
+    return;
+  }
+  loadVoices();
+  const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'fr-FR'; utterance.rate = 0.78; utterance.pitch = 1;
+  activeUtterance = utterance;
   const french = voices.find(v => v.lang === 'fr-FR') || voices.find(v => v.lang.startsWith('fr'));
   if (french) utterance.voice = french;
-  utterance.onerror = event => { if (!['interrupted', 'canceled'].includes(event.error)) toast('L’audio est indisponible. Vérifie les voix françaises de ton appareil.', 'الصوت غير متاح. تحقّق من وجود صوت فرنسي على جهازك.', 'Ssot ma khddamch. Chouf wach 3ndek sawt français f appareil.'); };
-  window.speechSynthesis.speak(utterance);
+  const fallback = () => {
+    if (request !== playbackRequest) return;
+    preferRecordings = true;
+    activeUtterance = null;
+    if (!playRecording(text, request)) unavailable();
+  };
+  utterance.onend = () => { if (activeUtterance === utterance) activeUtterance = null; };
+  utterance.onerror = event => { if (!['interrupted', 'canceled'].includes(event.error)) fallback(); };
+  try { window.speechSynthesis.speak(utterance); } catch { fallback(); }
 }

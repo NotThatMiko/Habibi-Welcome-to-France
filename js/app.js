@@ -1,6 +1,6 @@
 import { baseLessons, pronouns, conjugations, makeBaseQuestions, validateLesson } from './content.js';
 import { getState, preference, record, markRead, isRead, stats, lastAnswers, exportProgress, importProgress, resetProgress, downloadJSON, canSave } from './store.js';
-import { esc, bi, bt, icon, audio, toast, speak } from './ui.js';
+import { esc, bi, bt, icon, audio, toast, speak, stopAudio } from './ui.js';
 import { renderEditor, bindEditor } from './editor.js';
 
 let published = [];
@@ -276,7 +276,7 @@ document.addEventListener('click', e => {
 document.getElementById('modal').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 window.addEventListener('hashchange', () => {
   if (location.hash !== currentRoute) { session = null; result = null; }
-  currentRoute = location.hash; window.speechSynthesis?.cancel(); render(true); window.scrollTo(0, 0);
+  currentRoute = location.hash; stopAudio(); render(true); window.scrollTo(0, 0);
 });
 window.addEventListener('storage', e => { if (e.key === 'habibi:v1') toast('Des données ont changé dans un autre onglet. Recharge cette page pour les retrouver.', 'تغيّرت البيانات في علامة تبويب أخرى. أعد تحميل الصفحة.', 'Data tbeddlat f onglet akhor. 3awed 7ell had page.'); });
 

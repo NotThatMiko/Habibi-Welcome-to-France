@@ -41,7 +41,7 @@ Référence : [création d’un site GitHub Pages](https://docs.github.com/en/pa
 - Atelier de création de leçons, validation, essai local, import et export.
 - Interface responsive, lecture de droite à gauche pour l’arabe, navigation au clavier et prise en compte de la réduction des animations.
 
-Les voix utilisent la synthèse vocale du navigateur et les voix installées sur l’appareil. Leur disponibilité et leur qualité dépendent du navigateur et de l’appareil. Il n’y a pas de fichier audio préenregistré. Les lettres arabes sont un repère approximatif, pas une transcription phonétique exacte. Les variantes de darija peuvent être ajustées avec le professeur.
+L’écoute utilise les voix françaises de l’appareil quand la synthèse vocale est disponible. Des fichiers audio français sont aussi fournis pour les contenus publiés : ils prennent le relais dans les navigateurs sans synthèse vocale, notamment l’instance de Navigateur Mi signalée sur Android. Ils sont chargés à la demande et nécessitent une connexion. Les nouvelles leçons créées localement utilisent la synthèse vocale tant que leurs enregistrements n’ont pas été ajoutés au site. Les lettres arabes sont un repère approximatif, pas une transcription phonétique exacte. Les variantes de darija peuvent être ajustées avec le professeur.
 
 La darija et l’arabe n’expriment souvent pas « être » au présent avec un verbe. Les correspondances sont donc données en contexte ; « on », « vous » et les groupes masculins ou féminins sont expliqués.
 
@@ -89,6 +89,9 @@ Pour repartir de zéro sur cet appareil, choisir **Effacer ma progression** dans
 | `js/editor.js` | Formulaire de création et publication manuelle |
 | `js/store.js` | Sauvegarde locale et fusion des progressions |
 | `js/ui.js` | Sous-titres, icônes, synthèse vocale |
+| `js/audio-manifest.js` | Correspondance entre textes français et fichiers audio |
+| `assets/audio/fr/` | Enregistrements français AAC dans des fichiers M4A |
+| `scripts/generate_audio.py` | Génération des enregistrements avec macOS |
 | `js/config.js` | Nom du dépôt et branche GitHub, informations publiques |
 | `data/custom-lessons.json` | Leçons ajoutées depuis l’atelier |
 
@@ -101,3 +104,22 @@ Un test navigateur sans dépendance est fourni dans `tests/browser_check.py`. Il
 ```sh
 python3 tests/browser_check.py
 ```
+
+`python3 tests/audio_playback_check.py` vérifie séparément le décodage des enregistrements et leur lecture réelle dans Chrome avec les API de synthèse vocale désactivées. Le son de ce test est coupé ; le décodage et l’avancement du lecteur sont contrôlés. Cela ne remplace pas une vérification sur le téléphone Android concerné.
+
+## Préparer l’audio d’une nouvelle leçon publiée
+
+Après mise à jour de `data/custom-lessons.json`, démarrer le serveur local décrit plus haut et un profil Chrome de test dédié :
+
+```sh
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --no-first-run --no-default-browser-check --disable-background-networking --remote-debugging-port=9223 --remote-allow-origins=http://localhost:9223 --user-data-dir=/private/tmp/habibi-audio-chrome about:blank
+```
+
+Dans un autre terminal sur macOS :
+
+```sh
+python3 scripts/generate_audio.py
+python3 tests/audio_playback_check.py
+```
+
+Le script utilise la voix française Thomas de macOS, `say` et `afconvert`, sans service externe. Il réutilise les fichiers existants et génère les mots, les phrases, les questions et les lectures au choix des exercices. Publier ensemble `js/audio-manifest.js` et `assets/audio/fr/` avec la nouvelle leçon. Les chemins restent compatibles avec le sous-dossier GitHub Pages.
