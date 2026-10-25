@@ -105,21 +105,21 @@ export function makeBaseQuestions() {
     return { ...question(`p-e-${i}`, prompt, options(distractors, correct), correct, text(sentence, ar, darija), sentence, null), hint: text(sentence, ar, darija) };
   });
   const verbExercises = [
-    ['Il … marocain.', 'est', ['es', 'a', 'suis'], 'هو مغربي.', 'Howa mghribi.'],
-    ['Je … fatigué.', 'suis', ['ai', 'est', 'sommes'], 'أنا متعب.', 'Ana 3yyan.'],
-    ['Tu … à la maison.', 'es', ['est', 'as', 'êtes'], 'أنت في البيت.', 'Nta / ntiya f ddar.'],
-    ['Nous … contents.', 'sommes', ['sont', 'avons', 'êtes'], 'نحن سعداء.', '7na fer7anin.'],
-    ['Vous … un livre.', 'avez', ['avons', 'êtes', 'ont'], 'عندكم كتاب.', '3ndkom ktab.'],
-    ['J’… 25 ans.', 'ai', ['suis', 'as', 'a'], 'عمري 25 سنة. للعمر نستخدم avoir.', '3ndi 25 3am. L l3mer kansta3mlo avoir.'],
-    ['Elle … une sœur.', 'a', ['est', 'as', 'ont'], 'عندها أخت.', '3ndha kht.'],
-    ['Ils … à Paris.', 'sont', ['ont', 'est', 'sommes'], 'هم في باريس.', 'Houma f Paris.'],
-    ['Elles … un rendez-vous.', 'ont', ['sont', 'avons', 'a'], 'عندهنّ موعد.', '3ndhom rendez-vous.'],
-    ['On … à la maison.', 'est', ['sommes', 'a', 'êtes'], 'نحن في البيت. مع on نستخدم est.', '7na f ddar. M3a on kangolo est.'],
-    ['Nous … faim.', 'avons', ['sommes', 'ont', 'avez'], 'نحن جائعون. نقول avoir faim.', '7na ji3anin. Kangolo avoir faim.'],
-    ['Tu … un frère.', 'as', ['es', 'a', 'ai'], 'عندك أخ.', '3ndek khou.'],
-  ].map(([prompt, correct, distractors, ar, darija], i) => {
+    ['Il … marocain.', 'est', ['es', 'a', 'suis'], 'هو مغربي.', 'Howa mghribi.', 'être'],
+    ['Je … fatigué.', 'suis', ['ai', 'est', 'sommes'], 'أنا متعب.', 'Ana 3yyan.', 'être'],
+    ['Tu … à la maison.', 'es', ['est', 'as', 'êtes'], 'أنت في البيت.', 'Nta / ntiya f ddar.', 'être'],
+    ['Nous … contents.', 'sommes', ['sont', 'avons', 'êtes'], 'نحن سعداء.', '7na fer7anin.', 'être'],
+    ['Vous … un livre.', 'avez', ['avons', 'êtes', 'ont'], 'عندكم كتاب.', '3ndkom ktab.', 'avoir'],
+    ['J’… 25 ans.', 'ai', ['suis', 'as', 'a'], 'عمري 25 سنة. للعمر نستخدم avoir.', '3ndi 25 3am. L l3mer kansta3mlo avoir.', 'avoir'],
+    ['Elle … une sœur.', 'a', ['est', 'as', 'ont'], 'عندها أخت.', '3ndha kht.', 'avoir'],
+    ['Ils … à Paris.', 'sont', ['ont', 'est', 'sommes'], 'هم في باريس.', 'Houma f Paris.', 'être'],
+    ['Elles … un rendez-vous.', 'ont', ['sont', 'avons', 'a'], 'عندهنّ موعد.', '3ndhom rendez-vous.', 'avoir'],
+    ['On … à la maison.', 'est', ['sommes', 'a', 'êtes'], 'نحن في البيت. مع on نستخدم est.', '7na f ddar. M3a on kangolo est.', 'être'],
+    ['Nous … faim.', 'avons', ['sommes', 'ont', 'avez'], 'نحن جائعون. نقول avoir faim.', '7na ji3anin. Kangolo avoir faim.', 'avoir'],
+    ['Tu … un frère.', 'as', ['es', 'a', 'ai'], 'عندك أخ.', '3ndek khou.', 'avoir'],
+  ].map(([prompt, correct, distractors, ar, darija, verb], i) => {
     const sentence = prompt.replace('…', correct);
-    return question(`v-e-${i}`, prompt, options(distractors, correct), correct, text(sentence, ar, darija), sentence, null);
+    return { ...question(`v-e-${i}`, prompt, options(distractors, correct), correct, text(sentence, ar, darija), sentence, null), verb };
   });
   return { pronoms: { quiz: quizPronouns, exercises: pronounExercises }, 'etre-avoir': { quiz: quizVerbs, exercises: verbExercises } };
 }
@@ -145,6 +145,7 @@ export function validateLesson(value) {
       if (q.audio != null && (typeof q.audio !== 'string' || q.audio.length > 2000)) throw new Error('Texte audio invalide.');
       if (q.sentence != null && (typeof q.sentence !== 'string' || q.sentence.length > 2000)) throw new Error('Phrase corrigée invalide.');
       if (q.hint != null) localized(q.hint, 'Indice');
+      if (q.verb != null && (typeof q.verb !== 'string' || !q.verb.trim() || q.verb.length > 100)) throw new Error('Verbe à conjuguer invalide.');
       localized(q.explanation, 'Correction');
     });
   }
