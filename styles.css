@@ -14,6 +14,31 @@
   background: transparent;
 }
 
+.course-card {
+  display: block;
+}
+
+.course-card .theme-card-bottom {
+  margin-top: 20px;
+}
+
+.course-card:hover .card-link {
+  color: #9a4d39;
+}
+
+.page-footer > span:only-child {
+  display: flex;
+}
+
+@media (max-width: 760px) {
+  .mobile-nav > a {
+    flex: 1;
+    min-width: 0;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
+
 /* Keep these areas empty without changing their responsive spacing. */
 .sidebar .nav-label,
 .sidebar .daily-note,
