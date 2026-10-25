@@ -14,6 +14,25 @@
   background: transparent;
 }
 
+/* Align adjacent icons with the French line of bilingual labels. */
+.topbar-note,
+.eyebrow,
+.nav-item,
+.creator-link,
+.page-footer > span,
+.button,
+.card-link,
+.back-link,
+.start-badge,
+.read-badge,
+.theme-meta > span,
+.audio-hint,
+.audio-button:not(.compact),
+.gentle-note,
+.session-details > span {
+  align-items: baseline;
+}
+
 .hero-copy {
   display: flex;
   flex-direction: column;
