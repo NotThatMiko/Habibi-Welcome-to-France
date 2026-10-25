@@ -14,6 +14,32 @@
   background: transparent;
 }
 
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.hero-copy h1 {
+  margin: 44px 0 0;
+}
+
+.hero-copy > p,
+.hero-copy > .hero-footnote {
+  display: none;
+}
+
+.hero-copy > .button {
+  margin-top: 28px;
+}
+
+@media (max-width: 500px) {
+  .hero-copy h1 {
+    margin-top: 36px;
+  }
+}
+
 .course-card {
   display: block;
 }
@@ -39,11 +65,9 @@
   }
 }
 
-/* Keep these areas empty without changing their responsive spacing. */
+/* Keep the remaining decorative areas empty without changing their spacing. */
 .sidebar .nav-label,
 .sidebar .daily-note,
-.welcome-hero .hero-copy > p,
-.welcome-hero .hero-footnote,
 .welcome-hero .art-caption {
   visibility: hidden;
 }
