@@ -201,6 +201,73 @@ def check_progress_reset(browser):
     assert restored['drafts'] == before['drafts']
 
 
+def check_learning_questions(browser):
+    data = browser.js("""(async()=>{
+      const {makeBaseQuestions,conjugations,validateLesson}=await import('./js/content.js');
+      const {getState,preference}=await import('./js/store.js');
+      preference('autoAudio',true);
+      const questions=makeBaseQuestions();
+      const forms=questions['etre-avoir'].quiz.filter(q=>q.prompt.startsWith('Quelle est la forme'));
+      const verbOnly=questions['etre-avoir'].quiz.filter(q=>q.prompt.startsWith('Complète'));
+      const sameSubjects=forms.every(q=>{
+        const subject=q.prompt.match(/avec « (.+) »/)[1];
+        return q.options.length===4&&q.options.every(o=>o.text.startsWith(subject+' '))&&q.correct===conjugations.find(row=>row.subject===subject).etre.fr;
+      });
+      const noAnswerPronouns=verbOnly.every(q=>q.prompt.includes('…')&&q.options.length===4&&q.options.every(o=>['ai','as','a','avons','avez','ont'].includes(o.text)));
+      const hints=questions.pronoms.exercises.every(q=>q.hint?.ar&&q.hint?.darija&&!/Choisis|Utilise/.test(q.prompt));
+      const sibling=questions.pronoms.exercises.find(q=>q.correct==='Elle');
+      const draft=getState().drafts[0];
+      let badHintRejected=false;
+      try {validateLesson({...draft,exercises:[{...draft.exercises[0],hint:{fr:'Indice',ar:'',darija:'Indice'}}]})} catch {badHintRejected=true}
+      return {formCount:forms.length,completionCount:verbOnly.length,sameSubjects,noAnswerPronouns,hints,sibling:sibling.hint.darija,badHintRejected};
+    })()""")
+    assert data == {'formCount': 9, 'completionCount': 9, 'sameSubjects': True, 'noAnswerPronouns': True, 'hints': True, 'sibling': 'Hiya 3ndha khou.', 'badHintRejected': True}, data
+
+    browser.route('quiz/pronoms')
+    browser.click('[data-action="start"]')
+    browser.js('window.__spoken=[]')
+    for _ in range(9):
+        q = browser.js("(async()=>(await import('./js/content.js')).makeBaseQuestions().pronoms.quiz.find(q=>q.prompt===document.querySelector('.question-text').textContent))()")
+        assert browser.js("document.querySelectorAll('.question-panel-header .question-listen').length===1&&!document.querySelector('.question-audio,.question-panel .audio-button,.answer-option .option-volume,.answer-option [data-speak]')")
+        spoken = browser.js('window.__spoken.length')
+        for index in range(len(q['options'])):
+            browser.click('[data-answer="' + str(index) + '"]')
+        assert browser.js('window.__spoken.length') == spoken, 'Selecting Darija answers must stay silent'
+        browser.click('.question-panel-header .question-listen')
+        assert browser.js('window.__spoken.at(-1).text') == q['audio']
+        assert browser.js('window.__spoken.at(-1).lang') == 'fr-FR'
+        browser.js("[...document.querySelectorAll('[data-answer]')].find(b=>b.children[1].textContent===" + json.dumps(q['correct'], ensure_ascii=False) + ").click()")
+        assert browser.js('window.__spoken.length') == spoken + 1
+        browser.click('[data-action="check"]')
+        browser.click('.answer-feedback-heading .question-listen')
+        assert browser.js('window.__spoken.at(-1).text') == q['audio']
+        assert browser.js('window.__spoken.at(-1).lang') == 'fr-FR'
+        browser.click('[data-action="next"]')
+    assert browser.js("document.querySelector('.score-ring>span').textContent.replace(/\\s/g,'')") == '9/9'
+
+    browser.route('quiz/etre-avoir')
+    browser.click('[data-action="start"]')
+    spoken = browser.js('window.__spoken.length')
+    browser.click('[data-answer="0"]')
+    assert browser.js('window.__spoken.length') == spoken
+
+    browser.route('exercices/pronoms')
+    browser.click('[data-action="start"]')
+    for _ in range(9):
+        q = browser.js("(async()=>(await import('./js/content.js')).makeBaseQuestions().pronoms.exercises.find(q=>q.prompt===document.querySelector('.question-text').textContent))()")
+        assert q and q['hint'], q
+        for language in ['ar', 'darija']:
+            browser.js("document.querySelector('#language').value=" + json.dumps(language) + ";document.querySelector('#language').dispatchEvent(new Event('change'))")
+            hint = browser.js("(() => {const hint=document.querySelector('.question-hint');return {text:hint.textContent,dir:hint.dir,lang:hint.lang}})()")
+            assert hint == {'text': q['hint'][language], 'dir': 'rtl' if language == 'ar' else 'ltr', 'lang': 'ar' if language == 'ar' else 'ary-Latn'}, hint
+        browser.js("[...document.querySelectorAll('[data-answer]')].find(b=>b.children[1].textContent===" + json.dumps(q['correct'], ensure_ascii=False) + ").click()")
+        assert browser.js('window.__spoken.at(-1).text') == q['sentence']
+        assert browser.js('window.__spoken.at(-1).lang') == 'fr-FR'
+        browser.click('[data-action="check"]')
+        browser.click('[data-action="next"]')
+    assert browser.js("document.querySelector('.score-ring>span').textContent.replace(/\\s/g,'')") == '9/9'
+
+
 def main():
     browser = Browser()
     browser.navigate(ORIGIN + '/?qa=' + str(time.time_ns()))
@@ -324,6 +391,9 @@ def main():
     })()""")
     assert data == {'total': 48, 'invalid': True}, data
     checks.append("48 initial questions have distinct options and bilingual corrections; malformed custom questions are rejected")
+
+    check_learning_questions(browser)
+    checks.append("Darija answers stay silent; compact French listening works in questions and corrections; verb distractors keep the question's subject; pronoun exercises show Arabic/Darija hints and accept the French pronoun")
 
     check_progress_reset(browser)
     checks.append("Progress reset requires exact 7bibi confirmation; cancel/Escape preserve data; storage failure rolls back; successful reset survives reload, preserves lessons/preferences and accepts a previous backup")

@@ -60,8 +60,8 @@ export const baseLessons = [
   },
 ];
 
-function options(values, correct, speech) {
-  return [...new Set([correct, ...values])].slice(0, 4).map(value => ({ text: value, speech: speech || value }));
+function options(values, correct) {
+  return [...new Set([correct, ...values])].slice(0, 4).map(value => ({ text: value, speech: value }));
 }
 const question = (id, prompt, choices, correct, explanation, sentence, audio) => ({ id, prompt, options: choices, correct, explanation, sentence, audio });
 
@@ -69,31 +69,40 @@ export function makeBaseQuestions() {
   const quizPronouns = pronouns.map((p, i) => {
     const correct = p.darija;
     const other = pronouns.filter((_, n) => n !== i && n !== 4).map(p => p.darija);
-    return question(`p-q-${i}`, `Quel est l’équivalent de « ${p.fr} » en darija ?`, options(other, correct, p.fr), correct,
+    return question(`p-q-${i}`, `Quel est l’équivalent de « ${p.fr} » en darija ?`, options(other, correct), correct,
       text(`« ${p.fr} » correspond à « ${correct} ». ${i === 4 ? 'Ici, on utilise « on » pour dire « nous ».' : ''}`.trim(), `${p.fr} = ${p.ar}.`, `${p.fr} = ${correct}.`), null, p.fr);
   });
-  const quizVerbs = conjugations.flatMap((row, i) => ['etre', 'avoir'].map(verb => {
-    const item = row[verb];
-    const values = conjugations.map(r => r[verb].fr);
-    const prompt = verb === 'avoir'
-      ? `Avec « ${row.subject} », comment dit-on « ${avoirDarija[i].split(' (')[0]} » avec le verbe « avoir » ?`
-      : `Quelle est la forme de « être » avec « ${row.subject} » ?`;
-    return question(`v-q-${verb}-${i}`, prompt, options(values.filter(v => v !== item.fr), item.fr), item.fr,
-      text(`Avec « ${row.subject} », on dit « ${item.fr} ».`, `مع « ${row.subject} » نقول « ${item.fr} ».`, `M3a « ${row.subject} », kangolo « ${item.fr} ».`), item.fr, row.subject);
-  }));
+  const avoirSentences = [
+    'J’… un livre.', 'Tu … un frère.', 'Il … un livre.', 'Elle … une sœur.',
+    'On … un rendez-vous.', 'Nous … un livre.', 'Vous … un livre.',
+    'Ils … un rendez-vous.', 'Elles … un frère.',
+  ];
+  const quizVerbs = conjugations.flatMap((row, i) => {
+    const etreChoices = [...new Set(etreForms)].map(form => `${row.subject} ${form}`);
+    const etreQuestion = question(`v-q-etre-${i}`, `Quelle est la forme de « être » avec « ${row.subject} » ?`,
+      options(etreChoices.filter(value => value !== row.etre.fr), row.etre.fr), row.etre.fr,
+      text(`Avec « ${row.subject} », on dit « ${row.etre.fr} ».`, `مع « ${row.subject} » نقول « ${row.etre.fr} ».`, `M3a « ${row.subject} », kangolo « ${row.etre.fr} ».`), row.etre.fr, row.subject);
+    const avoirForm = avoirForms[i];
+    const sentence = avoirSentences[i].replace('…', avoirForm);
+    const prompt = `Complète : « ${avoirSentences[i]} »`;
+    const avoirQuestion = question(`v-q-avoir-${i}`, prompt,
+      options(avoirForms.filter(form => form !== avoirForm), avoirForm), avoirForm,
+      text(`Avec « ${row.subject} », on utilise « ${avoirForm} » : ${sentence}`, `مع « ${row.subject} » نستخدم « ${avoirForm} »: ${sentence}`, `M3a « ${row.subject} », kangolo « ${avoirForm} »: ${sentence}`), sentence, prompt);
+    return [etreQuestion, avoirQuestion];
+  });
   const pronounExercises = [
     ['… suis marocain.', 'Je', ['Tu', 'Il', 'Nous'], 'أنا مغربي.', 'Ana mghribi.'],
     ['… es à la maison.', 'Tu', ['Je', 'Nous', 'Ils'], 'أنت في البيت.', 'Nta / ntiya f ddar.'],
-    ['… sommes à la maison.', 'Nous', ['Je', 'On', 'Vous'], 'نحن في البيت.', '7na f ddar.'],
-    ['… êtes à la maison.', 'Vous', ['Tu', 'Nous', 'Elles'], 'أنتم في البيت، أو أنت بصيغة الاحترام.', 'Ntouma f ddar.'],
-    ['… ai un livre.', 'J’', ['Tu', 'Nous', 'Vous'], 'عندي كتاب.', '3ndi ktab.'],
-    ['… a un frère. Choisis le pronom féminin.', 'Elle', ['Il', 'Ils', 'Elles'], 'عندها أخ. نختار ضمير المؤنث.', '3ndha khou. Khtar ddamir dyal lmo2annat.'],
-    ['… sont marocaines. Choisis le groupe féminin.', 'Elles', ['Elle', 'Nous', 'Il'], 'هنّ مغربيات.', 'Houma mghribiyat.'],
-    ['… sont marocains. Choisis le groupe masculin.', 'Ils', ['Il', 'On', 'Vous'], 'هم مغاربة.', 'Houma mgharba.'],
-    ['… est à la maison. Utilise le pronom qui remplace « nous » à l’oral.', 'On', ['Nous', 'Vous', 'Ils'], 'نحن في البيت. هنا نستعمل « on » بمعنى « نحن ».', '7na f ddar. Hna « on » kat3ni « 7na ».'],
+    ['… sommes à la maison.', 'Nous', ['Je', 'Tu', 'Vous'], 'نحن في البيت.', '7na f ddar.'],
+    ['… êtes à la maison.', 'Vous', ['Tu', 'Nous', 'Elles'], 'أنتم في البيت.', 'Ntouma f ddar.'],
+    ['… ai un livre.', 'J’', ['Tu', 'Nous', 'Vous'], 'أنا عندي كتاب.', 'Ana 3ndi ktab.'],
+    ['… a un frère.', 'Elle', ['Il', 'Ils', 'Elles'], 'هي عندها أخ.', 'Hiya 3ndha khou.'],
+    ['… sont marocaines.', 'Elles', ['Elle', 'Nous', 'Il'], 'هنّ مغربيات.', 'Houma mghribiyat.'],
+    ['… sont marocains.', 'Ils', ['Il', 'On', 'Vous'], 'هم مغاربة.', 'Houma mgharba.'],
+    ['… parle français ici.', 'On', ['Nous', 'Vous', 'Ils'], 'الناس يتكلّمون الفرنسية هنا.', 'Nnas kayhdro b lfrançais hna.'],
   ].map(([prompt, correct, distractors, ar, darija], i) => {
-    const sentence = prompt.split('. ')[0].replace('…', correct).replace('J’ ai', 'J’ai').replace(/\.$/, '') + '.';
-    return question(`p-e-${i}`, prompt, options(distractors, correct), correct, text(sentence, ar, darija), sentence, null);
+    const sentence = prompt.replace('…', correct).replace('J’ ai', 'J’ai');
+    return { ...question(`p-e-${i}`, prompt, options(distractors, correct), correct, text(sentence, ar, darija), sentence, null), hint: text(sentence, ar, darija) };
   });
   const verbExercises = [
     ['Il … marocain.', 'est', ['es', 'a', 'suis'], 'هو مغربي.', 'Howa mghribi.'],
@@ -135,6 +144,7 @@ export function validateLesson(value) {
       if (!q.options.some(o => o.text === q.correct)) throw new Error('Bonne réponse absente.');
       if (q.audio != null && (typeof q.audio !== 'string' || q.audio.length > 2000)) throw new Error('Texte audio invalide.');
       if (q.sentence != null && (typeof q.sentence !== 'string' || q.sentence.length > 2000)) throw new Error('Phrase corrigée invalide.');
+      if (q.hint != null) localized(q.hint, 'Indice');
       localized(q.explanation, 'Correction');
     });
   }

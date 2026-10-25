@@ -35,8 +35,8 @@ Référence : [création d’un site GitHub Pages](https://docs.github.com/en/pa
 - Deux thèmes de départ : neuf pronoms personnels ; être et avoir au présent.
 - Équivalents en arabe et en darija, exemples du quotidien, repères de prononciation.
 - 27 questions de quiz et 21 exercices, avec séances de neuf questions au maximum, tirées dans le thème choisi.
-- Questions sans sous-titres de traduction ; correction dans les deux langues après validation.
-- Lecture française au clic sur le haut-parleur ou sur une proposition. L’écoute au choix peut être désactivée.
+- Quiz sans sous-titres de traduction ; exercices de pronoms accompagnés d’un indice en arabe ou en darija. Correction dans les deux langues après validation.
+- Écoute française via les petites icônes de haut-parleur dans les questions et les corrections. Dans les quiz, cliquer sur une réponse sert uniquement à la sélectionner ; les réponses en darija n’ont pas de lecture audio. Dans les exercices, l’écoute au choix peut être désactivée.
 - Résultats, cours découverts et révision des dernières erreurs.
 - Atelier de création de leçons, validation, essai local, import et export.
 - Interface responsive, lecture de droite à gauche pour l’arabe, navigation au clavier et prise en compte de la réduction des animations.
