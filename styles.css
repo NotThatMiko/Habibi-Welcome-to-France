@@ -14,7 +14,8 @@
   background: transparent;
 }
 
-/* Align adjacent icons with the French line of bilingual labels. */
+/* Give the French label and its icon one row, then the translation its own row. */
+:where(
 .topbar-note,
 .eyebrow,
 .nav-item,
@@ -29,8 +30,50 @@
 .audio-hint,
 .audio-button:not(.compact),
 .gentle-note,
-.session-details > span {
-  align-items: baseline;
+.session-details > span
+):has(> .bilingual):has(> :is(.icon, i)) {
+  display: inline-grid;
+  grid-template-columns: minmax(0, max-content) max-content;
+  row-gap: 3px;
+  align-items: center;
+  --label-text-column: 1;
+  --label-icon-column: 2;
+
+  &:has(> :is(.icon, i):first-child) {
+    grid-template-columns: max-content minmax(0, max-content);
+    --label-text-column: 2;
+    --label-icon-column: 1;
+  }
+
+  &:is(.button, .eyebrow) {
+    row-gap: 1px;
+  }
+
+  & > :is(.icon, i) {
+    grid-column: var(--label-icon-column);
+    grid-row: 1;
+    align-self: center;
+  }
+
+  & > .bilingual {
+    display: contents;
+
+    & > .primary {
+      grid-column: var(--label-text-column);
+      grid-row: 1;
+    }
+
+    & > .translation {
+      grid-column: var(--label-text-column);
+      grid-row: 2;
+    }
+  }
+}
+
+@media (max-width: 960px) {
+  .topbar .topbar-note {
+    display: none;
+  }
 }
 
 .hero-copy {
@@ -53,7 +96,8 @@
   margin-top: 56px;
 }
 
-.lesson-topbar {
+.lesson-topbar,
+.quiz-topbar {
   justify-content: space-between;
 }
 
@@ -72,20 +116,31 @@
   }
 }
 
-.course-card {
+.course-card,
+.quiz-card {
   display: block;
 }
 
-.course-card .theme-card-bottom {
+.course-card .theme-card-bottom,
+.quiz-card .theme-card-bottom {
   margin-top: 20px;
 }
 
-.course-card:hover .card-link {
+.course-card:hover .card-link,
+.quiz-card:hover .card-link {
   color: #9a4d39;
 }
 
+.quiz-heading h1 {
+  margin-top: 0;
+}
+
+.quiz-themes {
+  margin-top: 30px;
+}
+
 .page-footer > span:only-child {
-  display: flex;
+  display: inline-grid;
 }
 
 @media (max-width: 760px) {

@@ -31,9 +31,12 @@ const navItems = [
 function shell(content, section, lesson = null) {
   const language = getState().language;
   const isCoursePage = section === 'cours' && !!lesson;
+  const isQuizPage = section === 'quiz';
   const headerStart = isCoursePage
     ? backLink('cours', 'back-link header-back-link')
-    : `<a class="mobile-brand" href="#/cours"><span class="mobile-brand-text"><span lang="ar" dir="rtl">دروس حبيبي ${icon('heart')}</span><span class="mobile-brand-subtitle" lang="en">7bibiiii! Welcome to France !</span></span></a><span class="topbar-note">${icon('heart')}${bi('Un espace fait pour toi', 'مساحة من أجلك', 'Blassa lik nta')}</span>`;
+    : isQuizPage
+      ? `<span class="eyebrow quiz-header-note">${icon('quiz')}${bi('UN PEU DE PRATIQUE', 'قليل من التدريب', 'Chwiya dyal tadrib')}</span>`
+      : `<a class="mobile-brand" href="#/cours"><span class="mobile-brand-text"><span lang="ar" dir="rtl">دروس حبيبي ${icon('heart')}</span><span class="mobile-brand-subtitle" lang="en">7bibiiii! Welcome to France !</span></span></a><span class="topbar-note">${icon('heart')}${bi('Un espace fait pour toi', 'مساحة من أجلك', 'Blassa lik nta')}</span>`;
   return `<div class="app-layout">
     <aside class="sidebar">
       <a href="#/cours" class="brand" aria-label="دروس حبيبي — Accueil"><span class="brand-symbol">${icon('book')}${icon('heart')}</span><span lang="ar" dir="rtl" class="brand-ar">دروس حبيبي</span><span class="brand-subtitle">7bibiiii! Welcome to France !</span></a>
@@ -41,7 +44,7 @@ function shell(content, section, lesson = null) {
       <nav class="desktop-nav" aria-label="Navigation principale — القائمة الرئيسية">${navItems.map(([path, name, label]) => routeLink(path, `${icon(name)}${label()}`, `nav-item ${section === path ? 'active' : ''}`)).join('')}${routeLink('progression', `${icon('chart')}${bi('Ma progression', 'تقدّمي', 'Taqaddom dyali')}`, `nav-item ${section === 'progression' ? 'active' : ''}`)}</nav>
       <div class="sidebar-bottom"><div class="daily-note">${icon('leaf')}<p>${bi('Un peu, chaque jour.', 'قليل كل يوم.', 'Chwiya kol nhar.')}<span class="note-detail">${bi('Tu avances à ton rythme.', 'تتقدّم على راحتك.', 'Katqeddem b rythme dyalek.')}</span></p></div>${routeLink('atelier', `${icon('plus')}${bi('Ajouter une leçon', 'إضافة درس', 'Zid ders')}`, `creator-link ${section === 'atelier' ? 'active' : ''}`)}</div>
     </aside>
-    <div class="workspace"><header class="topbar${isCoursePage ? ' lesson-topbar' : ''}">${headerStart}<div class="topbar-tools"><select id="language" aria-label="Langue de traduction — لغة الترجمة"><option value="ar" ${language === 'ar' ? 'selected' : ''}>العربية · Arabe</option><option value="darija" ${language === 'darija' ? 'selected' : ''}>Darija · الدارجة</option></select></div></header>
+    <div class="workspace"><header class="topbar${isCoursePage ? ' lesson-topbar' : isQuizPage ? ' quiz-topbar' : ''}">${headerStart}<div class="topbar-tools"><select id="language" aria-label="Langue de traduction — لغة الترجمة"><option value="ar" ${language === 'ar' ? 'selected' : ''}>العربية · Arabe</option><option value="darija" ${language === 'darija' ? 'selected' : ''}>Darija · الدارجة</option></select></div></header>
     <main id="main" tabindex="-1">${content}</main>
     <footer class="page-footer"><span>${icon('heart')}${bi('Fait avec amour, pour tes premiers mots.', 'بكل حب، من أجل كلماتك الأولى.', 'B l7ob, l awwel klmat dyalek.')}</span></footer></div>
     <nav class="mobile-nav" aria-label="Navigation mobile — القائمة">${navItems.map(([path, name, label]) => routeLink(path, `${icon(name)}${label()}`, section === path ? 'active' : '')).join('')}${routeLink('progression', `${icon('chart')}${bi('Progrès', 'تقدّمي', 'Taqaddom')}`, section === 'progression' ? 'active' : '')}${routeLink('atelier', `${icon('plus')}${bi('Ajouter', 'إضافة درس', 'Zid ders')}`, section === 'atelier' ? 'active' : '')}</nav></div>`;
@@ -56,22 +59,28 @@ function hero() {
 }
 function themeCard(lesson, section, index) {
   const isCourse = section === 'cours';
+  const isQuiz = section === 'quiz';
   const mode = section === 'exercices' ? 'exercises' : 'quiz';
   const count = questionsFor(lesson.id, mode).length;
   const progress = stats(lesson.id, isCourse ? undefined : mode);
   const totalQuestions = questionsFor(lesson.id, 'quiz').length + questionsFor(lesson.id, 'exercises').length;
   const ratio = totalQuestions ? Math.round(progress.mastered / totalQuestions * 100) : 0;
-  const tag = isCourse ? 'a' : 'article';
-  const cardAttrs = isCourse ? ` href="#/cours/${esc(lesson.id)}" aria-labelledby="course-title-${esc(lesson.id)}"` : '';
-  const action = isCourse
-    ? `<span class="card-link" aria-hidden="true">${bi('Voir le cours', 'افتح الدرس', '7ell ders')}${icon('arrow')}</span>`
-    : count > 0
-      ? routeLink(`${section}/${lesson.id}`, `${bi('Commencer', 'ابدأ', 'Bda')}${icon('arrow')}`, 'card-link')
-      : `<span class="muted">${bi('Pas encore de questions', 'لا توجد أسئلة بعد', 'Mazal ma kaynch as2ila')}</span>`;
-  return `<${tag} class="theme-card ${isCourse ? 'course-card ' : ''}${index % 2 ? 'peach-card' : 'sage-card'}"${cardAttrs}>
-    <div class="theme-card-top"><span class="theme-icon">${icon(lesson.icon || 'book')}</span>${isCourse ? '' : `<span class="week-tag">${bi(`Semaine ${lesson.week}`, `الأسبوع ${lesson.week}`, `Simana ${lesson.week}`)}</span>`}</div>
-    <div class="theme-card-copy"><h3${isCourse ? ` id="course-title-${esc(lesson.id)}"` : ''}>${bt(lesson.title)}</h3><p>${bt(lesson.description)}</p></div>
-    ${isCourse ? '' : `<div class="theme-meta"><span>${icon('quiz')}${bi(`${count} questions`, `${count} أسئلة`, `${count} as2ila`)}</span><span class="level-tag">${bi('Premiers pas', 'البداية', 'Lbedaya')}</span></div>`}
+  const showMetadata = !isCourse && !isQuiz;
+  const hasContent = isCourse || count > 0;
+  const isCardLink = (isCourse || isQuiz) && hasContent;
+  const tag = isCardLink ? 'a' : 'article';
+  const titleId = `${section}-title-${esc(lesson.id)}`;
+  const cardAttrs = isCardLink ? ` href="#/${section}/${esc(lesson.id)}" aria-labelledby="${titleId}"` : '';
+  const actionLabel = `${isCourse ? bi('Voir le cours', 'افتح الدرس', '7ell ders') : bi('Commencer', 'ابدأ', 'Bda')}${icon('arrow')}`;
+  const action = !hasContent
+    ? `<span class="muted">${bi('Pas encore de questions', 'لا توجد أسئلة بعد', 'Mazal ma kaynch as2ila')}</span>`
+    : isCardLink
+      ? `<span class="card-link" aria-hidden="true">${actionLabel}</span>`
+      : routeLink(`${section}/${lesson.id}`, actionLabel, 'card-link');
+  return `<${tag} class="theme-card ${isCourse ? 'course-card ' : isQuiz ? 'quiz-card ' : ''}${index % 2 ? 'peach-card' : 'sage-card'}"${cardAttrs}>
+    <div class="theme-card-top"><span class="theme-icon">${icon(lesson.icon || 'book')}</span>${showMetadata ? `<span class="week-tag">${bi(`Semaine ${lesson.week}`, `الأسبوع ${lesson.week}`, `Simana ${lesson.week}`)}</span>` : ''}</div>
+    <div class="theme-card-copy"><h3${isCardLink ? ` id="${titleId}"` : ''}>${bt(lesson.title)}</h3><p>${bt(lesson.description)}</p></div>
+    ${showMetadata ? `<div class="theme-meta"><span>${icon('quiz')}${bi(`${count} questions`, `${count} أسئلة`, `${count} as2ila`)}</span><span class="level-tag">${bi('Premiers pas', 'البداية', 'Lbedaya')}</span></div>` : ''}
     <div class="theme-card-bottom">${isCourse ? (isRead(lesson.id) ? `<span class="read-badge">${icon('check')}${bi('Déjà découvert', 'سبق لك الاطّلاع', 'Deja qriti')}</span>` : `<span class="start-badge"><i></i>${bi('À découvrir', 'للاكتشاف', 'Bach tktechef')}</span>`) : `<span class="start-badge">${bi(progress.sessions ? `${progress.sessions} séance${progress.sessions > 1 ? 's' : ''} terminée${progress.sessions > 1 ? 's' : ''}` : 'À toi de jouer', progress.sessions ? `${progress.sessions} جلسات مكتملة` : 'دورك الآن', progress.sessions ? `${progress.sessions} seances saliti` : 'Nouba dyalek')}</span>`}${action}</div>
     ${isCourse && ratio > 0 ? `<div class="card-progress" aria-label="${ratio}%"><i style="width:${ratio}%"></i></div>` : ''}
   </${tag}>`;
@@ -79,9 +88,10 @@ function themeCard(lesson, section, index) {
 function library(section) {
   const lessons = allLessons();
   const isCourse = section === 'cours';
-  const intro = section === 'quiz'
-    ? sectionHeading({ fr: 'UN PEU DE PRATIQUE', ar: 'قليل من التدريب', darija: 'Chwiya dyal tadrib' }, { fr: 'À toi de jouer.', ar: 'دورك الآن.', darija: 'Nouba dyalek.' }, { fr: 'Choisis un thème. Écoute, réfléchis, puis choisis ta réponse.', ar: 'اختر موضوعًا. استمع، فكّر، ثم اختر إجابتك.', darija: 'Khtar mawdo3. Sme3, fekker, w khtar ljawab.' }, 'quiz')
-    : sectionHeading({ fr: 'LE FRANÇAIS EN ACTION', ar: 'الفرنسية في التطبيق', darija: 'Lfrançais f tt atbiq' }, { fr: 'Un mot à la bonne place.', ar: 'الكلمة المناسبة في المكان المناسب.', darija: 'Lklma lmnasba f blastha.' }, { fr: 'Complète des petites phrases du quotidien, sans te presser.', ar: 'أكمل جملًا قصيرة من الحياة اليومية، على راحتك.', darija: 'Kemmel jomal sghar dyal kol nhar, b chwiya.' }, 'pen');
+  if (section === 'quiz') {
+    return `<div class="section-heading quiz-heading"><h1>${bi('Ici, les erreurs font partie du voyage.', 'الأخطاء جزء من التعلّم.', 'L2akhta2 joz2 mn tta3allom.')}</h1></div><section class="themes-section quiz-themes"><div class="themes-grid">${lessons.map((lesson, i) => themeCard(lesson, section, i)).join('')}</div></section>`;
+  }
+  const intro = sectionHeading({ fr: 'LE FRANÇAIS EN ACTION', ar: 'الفرنسية في التطبيق', darija: 'Lfrançais f tt atbiq' }, { fr: 'Un mot à la bonne place.', ar: 'الكلمة المناسبة في المكان المناسب.', darija: 'Lklma lmnasba f blastha.' }, { fr: 'Complète des petites phrases du quotidien, sans te presser.', ar: 'أكمل جملًا قصيرة من الحياة اليومية، على راحتك.', darija: 'Kemmel jomal sghar dyal kol nhar, b chwiya.' }, 'pen');
   return `${isCourse ? hero() : intro}<section class="themes-section"><div class="section-title-row"><div>${isCourse ? '' : `<div class="eyebrow">${bi('CHOISIS TON THÈME', 'اختر موضوعك', 'Khtar lmawdo3')}</div>`}<h2>${bi(isCourse ? 'Tes petites leçons' : 'Qu’est-ce qu’on révise ?', isCourse ? 'دروسك الصغيرة' : 'ماذا نراجع؟', isCourse ? 'Dorous sghar dyalek' : 'Chno nraj3o ?')}</h2></div>${isCourse ? '' : `<span class="count-pill">${bi(`${lessons.length} thèmes`, `${lessons.length} مواضيع`, `${lessons.length} mawadi3`)}</span>`}</div><div class="themes-grid">${lessons.map((l, i) => themeCard(l, section, i)).join('')}</div></section>${isCourse ? '' : `<div class="gentle-note">${icon('heart')}${bi('Ici, les erreurs font partie du voyage.', 'الأخطاء جزء من التعلّم.', 'L2akhta2 joz2 mn tta3allom.')}</div>`}`;
 }
 
