@@ -138,6 +138,69 @@ class Browser:
         (folder / filename).write_bytes(base64.b64decode(data["data"]))
 
 
+def check_progress_reset(browser):
+    browser.route('progression')
+    before = browser.js("(async()=>structuredClone((await import('./js/store.js')).getState()))()")
+    backup = browser.js("(async()=>(await import('./js/store.js')).exportProgress())()")
+    assert before['events'] and before['drafts'], 'Reset check needs existing progress and a created lesson'
+
+    browser.click('[data-action="reset-progress"]')
+    assert browser.js("document.querySelector('#modal').open && document.querySelector('#confirm-progress-reset').disabled")
+    for wrong in ['', '7bib', '7BIBI', '7bibi ', 'autre']:
+        browser.js("(() => {const input=document.querySelector('#reset-progress-confirmation');input.value=" + json.dumps(wrong) + ";input.dispatchEvent(new Event('input'));})()")
+        assert browser.js("document.querySelector('#confirm-progress-reset').disabled")
+        browser.js("document.querySelector('#reset-progress-form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))")
+        assert browser.js("JSON.parse(localStorage.getItem('habibi:v1'))") == before
+    browser.click('#cancel-progress-reset')
+    assert not browser.js("document.querySelector('#modal').open")
+    assert browser.js("JSON.parse(localStorage.getItem('habibi:v1'))") == before
+
+    browser.click('[data-action="reset-progress"]')
+    for event in ['keyDown', 'keyUp']:
+        browser.call('Input.dispatchKeyEvent', {'type': event, 'key': 'Escape', 'code': 'Escape', 'windowsVirtualKeyCode': 27})
+    browser.wait("!document.querySelector('#modal').open")
+    assert browser.js("JSON.parse(localStorage.getItem('habibi:v1'))") == before
+
+    browser.click('[data-action="reset-progress"]')
+    browser.js("(() => {const input=document.querySelector('#reset-progress-confirmation');input.value='7bibi';input.dispatchEvent(new Event('input'));})()")
+    assert not browser.js("document.querySelector('#confirm-progress-reset').disabled")
+    browser.js("""(() => {
+      window.__resetSetItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function(key,value) {
+        if(key==='habibi:v1') throw new DOMException('Test storage unavailable','QuotaExceededError');
+        return window.__resetSetItem.call(this,key,value);
+      };
+    })()""")
+    try:
+        browser.click('#confirm-progress-reset')
+        assert browser.js("document.querySelector('#modal').open && !document.querySelector('#reset-progress-error').hidden")
+        assert browser.js("(async()=>structuredClone((await import('./js/store.js')).getState()))()") == before
+        assert browser.js("JSON.parse(localStorage.getItem('habibi:v1'))") == before
+    finally:
+        browser.js("Storage.prototype.setItem=window.__resetSetItem;delete window.__resetSetItem")
+
+    browser.click('#confirm-progress-reset')
+    browser.wait("!document.querySelector('#modal').open")
+    after = browser.js("JSON.parse(localStorage.getItem('habibi:v1'))")
+    assert after['events'] == []
+    assert {key: value for key, value in after.items() if key != 'events'} == {key: value for key, value in before.items() if key != 'events'}
+    assert browser.js("[...document.querySelectorAll('.stat-card > strong')].map(e=>e.textContent)") == ['0', '0', '—']
+    assert browser.js("(async()=>(await import('./js/store.js')).exportProgress().events.length)()") == 0
+    browser.reload()
+    browser.wait("!!document.querySelector('.stats-grid')")
+    assert browser.js("JSON.parse(localStorage.getItem('habibi:v1'))") == after
+
+    browser.js("""(() => {
+      const file=new File([JSON.stringify(""" + json.dumps(backup, ensure_ascii=False) + """)],'progression.json',{type:'application/json'});
+      const transfer=new DataTransfer();transfer.items.add(file);
+      const input=document.querySelector('#import-progress');input.files=transfer.files;input.dispatchEvent(new Event('change'));
+    })()""")
+    browser.wait("JSON.parse(localStorage.getItem('habibi:v1')).events.length===" + str(len(before['events'])))
+    restored = browser.js("JSON.parse(localStorage.getItem('habibi:v1'))")
+    assert sorted(restored['events'], key=lambda event: event['id']) == sorted(before['events'], key=lambda event: event['id'])
+    assert restored['drafts'] == before['drafts']
+
+
 def main():
     browser = Browser()
     browser.navigate(ORIGIN + '/?qa=' + str(time.time_ns()))
@@ -261,6 +324,9 @@ def main():
     })()""")
     assert data == {'total': 48, 'invalid': True}, data
     checks.append("48 initial questions have distinct options and bilingual corrections; malformed custom questions are rejected")
+
+    check_progress_reset(browser)
+    checks.append("Progress reset requires exact 7bibi confirmation; cancel/Escape preserve data; storage failure rolls back; successful reset survives reload, preserves lessons/preferences and accepts a previous backup")
 
     browser.js("localStorage.clear()")
     browser.navigate(ORIGIN + '/?qa=' + str(time.time_ns()) + '#/cours')

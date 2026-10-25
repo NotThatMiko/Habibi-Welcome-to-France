@@ -1,5 +1,5 @@
 import { baseLessons, pronouns, conjugations, makeBaseQuestions, validateLesson } from './content.js';
-import { getState, preference, record, markRead, isRead, stats, lastAnswers, exportProgress, importProgress, downloadJSON, canSave } from './store.js';
+import { getState, preference, record, markRead, isRead, stats, lastAnswers, exportProgress, importProgress, resetProgress, downloadJSON, canSave } from './store.js';
 import { esc, bi, bt, icon, audio, toast, speak } from './ui.js';
 import { renderEditor, bindEditor } from './editor.js';
 
@@ -30,12 +30,17 @@ const navItems = [
 ];
 function shell(content, section, lesson = null) {
   const language = getState().language;
-  const isCoursePage = section === 'cours' && !!lesson;
-  const isQuizPage = section === 'quiz';
-  const headerStart = isCoursePage
-    ? backLink('cours', 'back-link header-back-link')
-    : isQuizPage
-      ? `<span class="eyebrow quiz-header-note">${icon('quiz')}${bi('UN PEU DE PRATIQUE', 'قليل من التدريب', 'Chwiya dyal tadrib')}</span>`
+  const hasLesson = !!lesson && ['cours', 'quiz', 'exercices'].includes(section);
+  const headerLabels = {
+    quiz: ['quiz', 'UN PEU DE PRATIQUE', 'قليل من التدريب', 'Chwiya dyal tadrib'],
+    exercices: ['pen', 'LE FRANÇAIS EN ACTION', 'الفرنسية في التطبيق', 'Lfrançais f tt atbiq'],
+    progression: ['chart', 'REGARDE LE CHEMIN PARCOURU', 'انظر إلى تقدّمك', 'Chouf fin wselti'],
+  };
+  const headerLabel = headerLabels[section];
+  const headerStart = hasLesson
+    ? backLink(section, 'back-link header-back-link')
+    : headerLabel
+      ? `<span class="eyebrow context-header-label">${icon(headerLabel[0])}${bi(...headerLabel.slice(1))}</span>`
       : `<a class="mobile-brand" href="#/cours"><span class="mobile-brand-text"><span lang="ar" dir="rtl">دروس حبيبي ${icon('heart')}</span><span class="mobile-brand-subtitle" lang="en">7bibiiii! Welcome to France !</span></span></a><span class="topbar-note">${icon('heart')}${bi('Un espace fait pour toi', 'مساحة من أجلك', 'Blassa lik nta')}</span>`;
   return `<div class="app-layout">
     <aside class="sidebar">
@@ -44,13 +49,10 @@ function shell(content, section, lesson = null) {
       <nav class="desktop-nav" aria-label="Navigation principale — القائمة الرئيسية">${navItems.map(([path, name, label]) => routeLink(path, `${icon(name)}${label()}`, `nav-item ${section === path ? 'active' : ''}`)).join('')}${routeLink('progression', `${icon('chart')}${bi('Ma progression', 'تقدّمي', 'Taqaddom dyali')}`, `nav-item ${section === 'progression' ? 'active' : ''}`)}</nav>
       <div class="sidebar-bottom"><div class="daily-note">${icon('leaf')}<p>${bi('Un peu, chaque jour.', 'قليل كل يوم.', 'Chwiya kol nhar.')}<span class="note-detail">${bi('Tu avances à ton rythme.', 'تتقدّم على راحتك.', 'Katqeddem b rythme dyalek.')}</span></p></div>${routeLink('atelier', `${icon('plus')}${bi('Ajouter une leçon', 'إضافة درس', 'Zid ders')}`, `creator-link ${section === 'atelier' ? 'active' : ''}`)}</div>
     </aside>
-    <div class="workspace"><header class="topbar${isCoursePage ? ' lesson-topbar' : isQuizPage ? ' quiz-topbar' : ''}">${headerStart}<div class="topbar-tools"><select id="language" aria-label="Langue de traduction — لغة الترجمة"><option value="ar" ${language === 'ar' ? 'selected' : ''}>العربية · Arabe</option><option value="darija" ${language === 'darija' ? 'selected' : ''}>Darija · الدارجة</option></select></div></header>
+    <div class="workspace"><header class="topbar${hasLesson || headerLabel ? ' context-topbar' : ''}">${headerStart}<div class="topbar-tools"><select id="language" aria-label="Langue de traduction — لغة الترجمة"><option value="ar" ${language === 'ar' ? 'selected' : ''}>العربية · Arabe</option><option value="darija" ${language === 'darija' ? 'selected' : ''}>Darija · الدارجة</option></select></div></header>
     <main id="main" tabindex="-1">${content}</main>
     <footer class="page-footer"><span>${icon('heart')}${bi('Fait avec amour, pour tes premiers mots.', 'بكل حب، من أجل كلماتك الأولى.', 'B l7ob, l awwel klmat dyalek.')}</span></footer></div>
     <nav class="mobile-nav" aria-label="Navigation mobile — القائمة">${navItems.map(([path, name, label]) => routeLink(path, `${icon(name)}${label()}`, section === path ? 'active' : '')).join('')}${routeLink('progression', `${icon('chart')}${bi('Progrès', 'تقدّمي', 'Taqaddom')}`, section === 'progression' ? 'active' : '')}${routeLink('atelier', `${icon('plus')}${bi('Ajouter', 'إضافة درس', 'Zid ders')}`, section === 'atelier' ? 'active' : '')}</nav></div>`;
-}
-function sectionHeading(eyebrow, title, description, iconName = 'book') {
-  return `<div class="section-heading"><div class="eyebrow">${icon(iconName)}${bt(eyebrow)}</div><h1>${bt(title)}</h1>${description ? `<p class="lead">${bt(description)}</p>` : ''}</div>`;
 }
 function hero() {
   return `<section class="welcome-hero"><div class="hero-copy"><div class="eyebrow">${icon('spark')}${bi('BIENVENUE CHEZ TOI', 'أهلًا بك', 'Mer7ba bik')}</div><h1>${bi('Un petit pas,\nchaque jour.', 'خطوة صغيرة، كل يوم.', 'Khtwa sghira, kol nhar.')}</h1><p>${bi('Le français s’apprend tranquillement.\nOn reprend ensemble ce que tu as appris ?', 'نتعلّم الفرنسية على مهل. هل نراجع معًا ما تعلّمته؟', 'Lfrançais kayt3ellem b chwiya. Nraj3o m3a b3diyatna chno t3ellemti ?')}</p><a class="button primary-button" href="#/cours/${isRead('pronoms') ? 'etre-avoir' : 'pronoms'}">${bi('On commence ?', 'هل نبدأ؟', 'Nebdaw ?')}${icon('arrow')}</a><div class="hero-footnote">${icon('clock')}${bi('Quelques minutes, à ton rythme', 'بضع دقائق، على راحتك', 'Chi dqayeq, b rythme dyalek')}</div></div>
@@ -65,22 +67,18 @@ function themeCard(lesson, section, index) {
   const progress = stats(lesson.id, isCourse ? undefined : mode);
   const totalQuestions = questionsFor(lesson.id, 'quiz').length + questionsFor(lesson.id, 'exercises').length;
   const ratio = totalQuestions ? Math.round(progress.mastered / totalQuestions * 100) : 0;
-  const showMetadata = !isCourse && !isQuiz;
   const hasContent = isCourse || count > 0;
-  const isCardLink = (isCourse || isQuiz) && hasContent;
+  const isCardLink = hasContent;
   const tag = isCardLink ? 'a' : 'article';
   const titleId = `${section}-title-${esc(lesson.id)}`;
   const cardAttrs = isCardLink ? ` href="#/${section}/${esc(lesson.id)}" aria-labelledby="${titleId}"` : '';
   const actionLabel = `${isCourse ? bi('Voir le cours', 'افتح الدرس', '7ell ders') : bi('Commencer', 'ابدأ', 'Bda')}${icon('arrow')}`;
-  const action = !hasContent
-    ? `<span class="muted">${bi('Pas encore de questions', 'لا توجد أسئلة بعد', 'Mazal ma kaynch as2ila')}</span>`
-    : isCardLink
-      ? `<span class="card-link" aria-hidden="true">${actionLabel}</span>`
-      : routeLink(`${section}/${lesson.id}`, actionLabel, 'card-link');
-  return `<${tag} class="theme-card ${isCourse ? 'course-card ' : isQuiz ? 'quiz-card ' : ''}${index % 2 ? 'peach-card' : 'sage-card'}"${cardAttrs}>
-    <div class="theme-card-top"><span class="theme-icon">${icon(lesson.icon || 'book')}</span>${showMetadata ? `<span class="week-tag">${bi(`Semaine ${lesson.week}`, `الأسبوع ${lesson.week}`, `Simana ${lesson.week}`)}</span>` : ''}</div>
+  const action = hasContent
+    ? `<span class="card-link" aria-hidden="true">${actionLabel}</span>`
+    : `<span class="muted">${bi('Pas encore de questions', 'لا توجد أسئلة بعد', 'Mazal ma kaynch as2ila')}</span>`;
+  return `<${tag} class="theme-card ${isCourse ? 'course-card ' : isQuiz ? 'quiz-card ' : 'exercise-card '}${index % 2 ? 'peach-card' : 'sage-card'}"${cardAttrs}>
+    <div class="theme-card-top"><span class="theme-icon">${icon(lesson.icon || 'book')}</span></div>
     <div class="theme-card-copy"><h3${isCardLink ? ` id="${titleId}"` : ''}>${bt(lesson.title)}</h3><p>${bt(lesson.description)}</p></div>
-    ${showMetadata ? `<div class="theme-meta"><span>${icon('quiz')}${bi(`${count} questions`, `${count} أسئلة`, `${count} as2ila`)}</span><span class="level-tag">${bi('Premiers pas', 'البداية', 'Lbedaya')}</span></div>` : ''}
     <div class="theme-card-bottom">${isCourse ? (isRead(lesson.id) ? `<span class="read-badge">${icon('check')}${bi('Déjà découvert', 'سبق لك الاطّلاع', 'Deja qriti')}</span>` : `<span class="start-badge"><i></i>${bi('À découvrir', 'للاكتشاف', 'Bach tktechef')}</span>`) : `<span class="start-badge">${bi(progress.sessions ? `${progress.sessions} séance${progress.sessions > 1 ? 's' : ''} terminée${progress.sessions > 1 ? 's' : ''}` : 'À toi de jouer', progress.sessions ? `${progress.sessions} جلسات مكتملة` : 'دورك الآن', progress.sessions ? `${progress.sessions} seances saliti` : 'Nouba dyalek')}</span>`}${action}</div>
     ${isCourse && ratio > 0 ? `<div class="card-progress" aria-label="${ratio}%"><i style="width:${ratio}%"></i></div>` : ''}
   </${tag}>`;
@@ -88,11 +86,13 @@ function themeCard(lesson, section, index) {
 function library(section) {
   const lessons = allLessons();
   const isCourse = section === 'cours';
-  if (section === 'quiz') {
-    return `<div class="section-heading quiz-heading"><h1>${bi('Ici, les erreurs font partie du voyage.', 'الأخطاء جزء من التعلّم.', 'L2akhta2 joz2 mn tta3allom.')}</h1></div><section class="themes-section quiz-themes"><div class="themes-grid">${lessons.map((lesson, i) => themeCard(lesson, section, i)).join('')}</div></section>`;
+  if (!isCourse) {
+    const title = section === 'quiz'
+      ? bi('Ici, les erreurs font partie du voyage.', 'الأخطاء جزء من التعلّم.', 'L2akhta2 joz2 mn tta3allom.')
+      : bi('Un mot à la bonne place.', 'الكلمة المناسبة في المكان المناسب.', 'Lklma lmnasba f blastha.');
+    return `<div class="section-heading practice-heading"><h1>${title}</h1></div><section class="themes-section practice-themes"><div class="themes-grid">${lessons.map((lesson, i) => themeCard(lesson, section, i)).join('')}</div></section>`;
   }
-  const intro = sectionHeading({ fr: 'LE FRANÇAIS EN ACTION', ar: 'الفرنسية في التطبيق', darija: 'Lfrançais f tt atbiq' }, { fr: 'Un mot à la bonne place.', ar: 'الكلمة المناسبة في المكان المناسب.', darija: 'Lklma lmnasba f blastha.' }, { fr: 'Complète des petites phrases du quotidien, sans te presser.', ar: 'أكمل جملًا قصيرة من الحياة اليومية، على راحتك.', darija: 'Kemmel jomal sghar dyal kol nhar, b chwiya.' }, 'pen');
-  return `${isCourse ? hero() : intro}<section class="themes-section"><div class="section-title-row"><div>${isCourse ? '' : `<div class="eyebrow">${bi('CHOISIS TON THÈME', 'اختر موضوعك', 'Khtar lmawdo3')}</div>`}<h2>${bi(isCourse ? 'Tes petites leçons' : 'Qu’est-ce qu’on révise ?', isCourse ? 'دروسك الصغيرة' : 'ماذا نراجع؟', isCourse ? 'Dorous sghar dyalek' : 'Chno nraj3o ?')}</h2></div>${isCourse ? '' : `<span class="count-pill">${bi(`${lessons.length} thèmes`, `${lessons.length} مواضيع`, `${lessons.length} mawadi3`)}</span>`}</div><div class="themes-grid">${lessons.map((l, i) => themeCard(l, section, i)).join('')}</div></section>${isCourse ? '' : `<div class="gentle-note">${icon('heart')}${bi('Ici, les erreurs font partie du voyage.', 'الأخطاء جزء من التعلّم.', 'L2akhta2 joz2 mn tta3allom.')}</div>`}`;
+  return `${hero()}<section class="themes-section"><div class="section-title-row"><h2>${bi('Tes petites leçons', 'دروسك الصغيرة', 'Dorous sghar dyalek')}</h2></div><div class="themes-grid">${lessons.map((lesson, i) => themeCard(lesson, section, i)).join('')}</div></section>`;
 }
 
 function backLink(section = 'cours', className = 'back-link') { return routeLink(section, `${icon('back')}${bi('Tous les thèmes', 'كل المواضيع', 'Ga3 lmawadi3')}`, className); }
@@ -115,7 +115,8 @@ function beginSession(topic, mode, mistakesOnly = false) {
 function sessionIntro(lesson, mode) {
   const summary = stats(lesson.id, mode);
   const count = Math.min(9, questionsFor(lesson.id, mode).length);
-  return `${backLink(mode === 'quiz' ? 'quiz' : 'exercices')}<div class="session-intro"><div class="large-theme-icon">${icon(mode === 'quiz' ? 'quiz' : 'pen')}</div><div class="eyebrow">${bi(mode === 'quiz' ? 'UN PETIT QUIZ' : 'UN PEU DE PRATIQUE', mode === 'quiz' ? 'اختبار قصير' : 'قليل من التدريب', mode === 'quiz' ? 'Quiz sghir' : 'Chwiya dyal tadrib')}</div><h1>${bt(lesson.title)}</h1><p>${bi(mode === 'quiz' ? 'Une question à la fois. Choisis une réponse, puis vérifie-la.' : 'Choisis le mot qui manque, puis vérifie ta phrase.', mode === 'quiz' ? 'سؤال واحد في كل مرة. اختر إجابة ثم تحقّق منها.' : 'اختر الكلمة الناقصة، ثم تحقّق من جملتك.', mode === 'quiz' ? 'Sou2al b sou2al. Khtar ljawab w t2ekked.' : 'Khtar lklma nnaqsa w t2ekked mn ljomla.')}</p><div class="session-details"><span>${icon('quiz')}${bi(`${count} questions`, `${count} أسئلة`, `${count} as2ila`)}</span><span>${icon('clock')}${bi('Sans chronomètre', 'بدون توقيت', 'Bla chrono')}</span><span>${icon('volume')}${bi('Avec le son', 'مع الصوت', 'M3a ssot')}</span></div>${button('start', `${bi('C’est parti !', 'لنبدأ!', 'Yallah !')}${icon('arrow')}`, 'button primary-button', `data-topic="${esc(lesson.id)}" data-mode="${mode}"`)}${summary.mistakes ? button('start-mistakes', `${icon('repeat')}${bi(`Revoir mes erreurs (${summary.mistakes})`, `راجع أخطاءك (${summary.mistakes})`, `3awed l2akhta2 (${summary.mistakes})`)}`, 'button text-button', `data-topic="${esc(lesson.id)}" data-mode="${mode}"`) : ''}<a class="subtle-link" href="#/cours/${esc(lesson.id)}">${bi('Relire le cours avant', 'راجع الدرس أولًا', '3awed qra ders lwwel')}</a></div>`;
+  const instruction = mode === 'quiz' ? '' : `<p>${bi('Choisis le mot qui manque, puis vérifie ta phrase.', 'اختر الكلمة الناقصة، ثم تحقّق من جملتك.', 'Khtar lklma nnaqsa w t2ekked mn ljomla.')}</p>`;
+  return `<div class="session-intro"><div class="large-theme-icon">${icon(mode === 'quiz' ? 'quiz' : 'pen')}</div><div class="eyebrow">${bi(mode === 'quiz' ? 'UN PETIT QUIZ' : 'UN PEU DE PRATIQUE', mode === 'quiz' ? 'اختبار قصير' : 'قليل من التدريب', mode === 'quiz' ? 'Quiz sghir' : 'Chwiya dyal tadrib')}</div><h1>${bt(lesson.title)}</h1>${instruction}<div class="session-details"><span>${icon('quiz')}${bi(`${count} questions`, `${count} أسئلة`, `${count} as2ila`)}</span><span>${icon('clock')}${bi('Sans chronomètre', 'بدون توقيت', 'Bla chrono')}</span><span>${icon('volume')}${bi('Avec le son', 'مع الصوت', 'M3a ssot')}</span></div>${button('start', `${bi('C’est parti !', 'لنبدأ!', 'Yallah !')}${icon('arrow')}`, 'button primary-button', `data-topic="${esc(lesson.id)}" data-mode="${mode}"`)}${summary.mistakes ? button('start-mistakes', `${icon('repeat')}${bi(`Revoir mes erreurs (${summary.mistakes})`, `راجع أخطاءك (${summary.mistakes})`, `3awed l2akhta2 (${summary.mistakes})`)}`, 'button text-button', `data-topic="${esc(lesson.id)}" data-mode="${mode}"`) : ''}<a class="subtle-link" href="#/cours/${esc(lesson.id)}">${bi('Relire le cours avant', 'راجع الدرس أولًا', '3awed qra ders lwwel')}</a></div>`;
 }
 function activeSession() {
   const q = session.questions[session.index];
@@ -124,7 +125,7 @@ function activeSession() {
   const right = session.selected === q.correct;
   const parts = isExercise ? q.prompt.split('…') : [];
   const sentenceMarkup = parts.length > 1 ? `${esc(parts[0])}<span class="blank ${session.checked ? (right ? 'correct-blank' : 'wrong-blank') : ''}">${esc(session.selected || '…')}</span>${esc(parts.slice(1).join('…'))}` : esc(q.prompt);
-  return `<section class="exercise-session"><div class="session-top"><div><span class="eyebrow">${esc(lesson.title.fr)}</span><h1 class="session-kind">${isExercise ? 'Complète la phrase' : 'Choisis la bonne réponse'}</h1></div>${button('quit', `${icon('close')}<span class="sr-only">Quitter — مغادرة</span>`, 'icon-button', 'aria-label="Quitter la séance — مغادرة"')}</div><div class="session-progress-label"><span>Question ${session.index + 1} sur ${session.questions.length}</span><span>${Math.round(session.index / session.questions.length * 100)} %</span></div><div class="session-progress"><i style="width:${session.index / session.questions.length * 100}%"></i></div><div class="question-panel"><div class="question-number">${icon(isExercise ? 'pen' : 'quiz')}<span>${isExercise ? 'À toi de compléter' : 'À toi de choisir'}</span></div><h2 class="question-text ${isExercise ? 'sentence-question' : ''}">${isExercise ? sentenceMarkup : esc(q.prompt)}</h2>${q.audio ? `<div class="question-audio">${audio(q.audio, false, false)}</div>` : ''}<div class="answer-options ${isExercise ? 'word-options' : ''}" role="group" aria-label="Réponses"><span class="sr-only">Choisis une réponse puis appuie sur Vérifier.</span>${q.options.map((o, i) => `<button type="button" class="answer-option ${session.selected === o.text ? 'selected' : ''} ${session.checked && o.text === q.correct ? 'correct' : ''} ${session.checked && session.selected === o.text && !right ? 'incorrect' : ''}" data-answer="${i}" aria-pressed="${session.selected === o.text}" ${session.checked ? 'disabled' : ''}><span class="option-letter">${String.fromCharCode(65 + i)}</span><span>${esc(o.text)}</span>${session.checked && o.text === q.correct ? icon('check') : icon('volume', 'option-volume')}</button>`).join('')}</div><label class="audio-toggle"><input type="checkbox" id="auto-audio" ${getState().autoAudio ? 'checked' : ''}> Écouter quand je choisis</label>${session.checked ? `<div class="answer-feedback ${right ? 'right-feedback' : 'try-feedback'}" role="status"><div class="feedback-icon">${icon(right ? 'check' : 'leaf')}</div><div><h3>${bi(right ? 'Oui, bien joué !' : 'On apprend aussi en essayant.', right ? 'نعم، أحسنت!' : 'نتعلّم أيضًا بالمحاولة.', right ? 'Iyyeh, bravo !' : 'Kant3ellmo ta b ttaj riba.')}</h3><p>${bt(q.explanation)}</p>${audio(q.sentence || q.audio || q.correct)}</div></div>` : ''}<div class="question-actions">${session.checked ? button('next', `${bi(session.index === session.questions.length - 1 ? 'Voir mon résultat' : 'Question suivante', session.index === session.questions.length - 1 ? 'نتيجتي' : 'السؤال التالي', session.index === session.questions.length - 1 ? 'Nnatija dyali' : 'Sou2al jjay')}${icon('arrow')}`, 'button primary-button') : button('check', `Vérifier ma réponse${icon('check')}`, 'button primary-button', session.selected === null ? 'disabled' : '')}</div></div><p class="session-gentle-note">Prends ton temps. Tu es là pour apprendre. ${icon('heart')}</p></section>`;
+  return `<section class="exercise-session"><div class="session-top"><div><span class="eyebrow">${esc(lesson.title.fr)}</span><h1 class="session-kind">${isExercise ? 'Complète la phrase' : 'Choisis la bonne réponse'}</h1></div>${button('quit', `${icon('close')}<span class="sr-only">Quitter — مغادرة</span>`, 'icon-button', 'aria-label="Quitter la séance — مغادرة"')}</div><div class="session-progress-label"><span>Question ${session.index + 1} sur ${session.questions.length}</span><span>${Math.round(session.index / session.questions.length * 100)} %</span></div><div class="session-progress"><i style="width:${session.index / session.questions.length * 100}%"></i></div><div class="question-panel"><div class="question-number">${icon(isExercise ? 'pen' : 'quiz')}<span>${isExercise ? 'À toi de compléter' : 'À toi de choisir'}</span></div><h2 class="question-text ${isExercise ? 'sentence-question' : ''}">${isExercise ? sentenceMarkup : esc(q.prompt)}</h2>${q.audio ? `<div class="question-audio">${audio(q.audio, false, false)}</div>` : ''}<div class="answer-options ${isExercise ? 'word-options' : ''}" role="group" aria-label="Réponses"><span class="sr-only">Choisis une réponse puis appuie sur Vérifier.</span>${q.options.map((o, i) => `<button type="button" class="answer-option ${session.selected === o.text ? 'selected' : ''} ${session.checked && o.text === q.correct ? 'correct' : ''} ${session.checked && session.selected === o.text && !right ? 'incorrect' : ''}" data-answer="${i}" aria-pressed="${session.selected === o.text}" ${session.checked ? 'disabled' : ''}><span class="option-letter">${String.fromCharCode(65 + i)}</span><span>${esc(o.text)}</span>${session.checked && o.text === q.correct ? icon('check') : icon('volume', 'option-volume')}</button>`).join('')}</div>${isExercise ? `<label class="audio-toggle"><input type="checkbox" id="auto-audio" ${getState().autoAudio ? 'checked' : ''}> Écouter quand je choisis</label>` : ''}${session.checked ? `<div class="answer-feedback ${right ? 'right-feedback' : 'try-feedback'}" role="status"><div class="feedback-icon">${icon(right ? 'check' : 'leaf')}</div><div><h3>${bi(right ? 'Oui, bien joué !' : 'On apprend aussi en essayant.', right ? 'نعم، أحسنت!' : 'نتعلّم أيضًا بالمحاولة.', right ? 'Iyyeh, bravo !' : 'Kant3ellmo ta b ttaj riba.')}</h3><p>${bt(q.explanation)}</p>${audio(q.sentence || q.audio || q.correct)}</div></div>` : ''}<div class="question-actions">${session.checked ? button('next', `${bi(session.index === session.questions.length - 1 ? 'Voir mon résultat' : 'Question suivante', session.index === session.questions.length - 1 ? 'نتيجتي' : 'السؤال التالي', session.index === session.questions.length - 1 ? 'Nnatija dyali' : 'Sou2al jjay')}${icon('arrow')}`, 'button primary-button') : button('check', `Vérifier ma réponse${icon('check')}`, 'button primary-button', session.selected === null ? 'disabled' : '')}</div></div><p class="session-gentle-note">Prends ton temps. Tu es là pour apprendre. ${icon('heart')}</p></section>`;
 }
 function resultView() {
   const score = result.answers.filter(a => a.correct).length;
@@ -133,11 +134,21 @@ function resultView() {
 }
 
 function progressionView() {
-  const summary = stats(); const readCount = allLessons().filter(l => isRead(l.id)).length;
-  return `${sectionHeading({ fr: 'REGARDE LE CHEMIN PARCOURU', ar: 'انظر إلى تقدّمك', darija: 'Chouf fin wselti' }, { fr: 'Chaque petit pas compte.', ar: 'كل خطوة صغيرة لها قيمة.', darija: 'Kol khtwa sghira kat7seb.' }, { fr: 'Ici, tu retrouves ce que tu as déjà appris et ce que tu peux revoir.', ar: 'هنا تجد ما تعلّمته وما يمكنك مراجعته.', darija: 'Hna katlqa chno t3ellemti w chno tqder t3awed.' }, 'chart')}<div class="stats-grid">${[[readCount, 'Cours découverts', 'دروس اطّلعت عليها', 'Dorous qriti', 'book'], [summary.sessions, 'Séances terminées', 'جلسات مكتملة', 'Seances saliti', 'flag'], [summary.total ? `${summary.percent} %` : '—', 'De bonnes réponses', 'إجابات صحيحة', 'Ajwiba s7i7a', 'check']].map(([value, fr, ar, darija, name]) => `<article class="stat-card">${icon(name)}<strong>${value}</strong>${bi(fr, ar, darija)}</article>`).join('')}</div><section class="progress-topics"><h2>${bi('Thème par thème', 'موضوعًا بموضوع', 'Mawdo3 b mawdo3')}</h2>${allLessons().map(lesson => {
-    const s = stats(lesson.id); const total = questionsFor(lesson.id, 'quiz').length + questionsFor(lesson.id, 'exercises').length;
-    return `<article class="progress-topic"><span class="theme-icon">${icon(lesson.icon || 'book')}</span><div class="progress-topic-main"><h3>${bt(lesson.short || lesson.title)}</h3><div class="topic-progress-track"><i style="width:${total ? s.mastered / total * 100 : 0}%"></i></div><p>${bi(`${s.mastered} / ${total} questions réussies au dernier essai`, `${s.mastered} / ${total} أسئلة أُجيب عنها بشكل صحيح في آخر محاولة`, `${s.mastered} / ${total} as2ila s7i7a f akher mo7awala`)}</p></div>${routeLink(`quiz/${lesson.id}`, `${bi('Réviser', 'راجع', 'Raje3')}${icon('arrow')}`, 'card-link')}</article>`;
-  }).join('')}</section><section class="transfer-panel"><div class="transfer-title">${icon('folder')}<div><h2>${bi('Mes progrès, d’un appareil à l’autre', 'تقدّمي من جهاز إلى آخر', 'Taqaddom dyali mn appareil l akhor')}</h2><p>${bi('Exporte ce fichier, envoie-le sur ton autre appareil, puis importe-le ici. Les progrès des deux appareils seront réunis.', 'صدّر الملف وأرسله إلى جهازك الآخر، ثم استورده هنا. سيُجمع تقدّم الجهازين.', 'Exporti lfichier, sifto l appareil lakhor, w importih hna. Taqaddom dyal jouj kaytjme3.')}</p></div></div><div class="transfer-actions">${button('export-progress', `${icon('download')}${bi('Exporter ma progression', 'تصدير تقدّمي', 'Exporti taqaddom')}`, 'button secondary-button')}<label class="button secondary-button file-button">${icon('upload')}${bi('Importer ma progression', 'استيراد تقدّمي', 'Importi taqaddom')}<input id="import-progress" type="file" accept="application/json,.json"></label></div><p class="small-note">${icon('info')}${bi('Sauvegarde locale sur cet appareil. Le transfert est manuel. Importer deux fois le même fichier ne crée pas de doublons.', 'الحفظ محلي على هذا الجهاز، والنقل يدوي. استيراد الملف نفسه مرتين لا يكرّر النتائج.', 'Sauvegarde f had appareil. Ttransfert b yeddek. Ila importiti nefs lfichier jouj merrat, ma kaytzadch doublon.')}</p><p id="import-status" role="status"></p></section>`;
+  const summary = stats();
+  const readCount = allLessons().filter(lesson => isRead(lesson.id)).length;
+  return `<div class="section-heading progression-heading"><h1>${bi('Chaque petit pas compte.', 'كل خطوة صغيرة لها قيمة.', 'Kol khtwa sghira kat7seb.')}</h1></div>
+    <div class="stats-grid">${[[readCount, 'Cours découverts', 'دروس اطّلعت عليها', 'Dorous qriti', 'book'], [summary.sessions, 'Séances terminées', 'جلسات مكتملة', 'Seances saliti', 'flag'], [summary.total ? `${summary.percent} %` : '—', 'De bonnes réponses', 'إجابات صحيحة', 'Ajwiba s7i7a', 'check']].map(([value, fr, ar, darija, name]) => `<article class="stat-card">${icon(name)}<strong>${value}</strong>${bi(fr, ar, darija)}</article>`).join('')}</div>
+    <section class="progress-topics"><h2>${bi('Thème par thème', 'موضوعًا بموضوع', 'Mawdo3 b mawdo3')}</h2>${allLessons().map(lesson => {
+      const s = stats(lesson.id);
+      const quizCount = questionsFor(lesson.id, 'quiz').length;
+      const total = quizCount + questionsFor(lesson.id, 'exercises').length;
+      const titleId = `progress-title-${esc(lesson.id)}`;
+      return `<a class="progress-topic" href="#/${quizCount ? 'quiz' : 'cours'}/${esc(lesson.id)}" aria-labelledby="${titleId}"><span class="theme-icon">${icon(lesson.icon || 'book')}</span><div class="progress-topic-main"><h3 id="${titleId}">${bt(lesson.short || lesson.title)}</h3><div class="topic-progress-track"><i style="width:${total ? s.mastered / total * 100 : 0}%"></i></div><p>${bi(`${s.mastered} / ${total} questions réussies au dernier essai`, `${s.mastered} / ${total} أسئلة أُجيب عنها بشكل صحيح في آخر محاولة`, `${s.mastered} / ${total} as2ila s7i7a f akher mo7awala`)}</p></div><span class="card-link" aria-hidden="true">${quizCount ? bi('Réviser', 'راجع', 'Raje3') : bi('Voir le cours', 'افتح الدرس', '7ell ders')}${icon('arrow')}</span></a>`;
+    }).join('')}</section>
+    <section class="transfer-panel"><div class="transfer-title">${icon('folder')}<h2>${bi('Mes progrès, d’un appareil à l’autre', 'تقدّمي من جهاز إلى آخر', 'Taqaddom dyali mn appareil l akhor')}</h2></div>
+      <div class="transfer-actions">${button('export-progress', `${icon('download')}${bi('Exporter ma progression', 'تصدير تقدّمي', 'Exporti taqaddom')}`, 'button secondary-button')}<label class="button secondary-button file-button">${icon('upload')}${bi('Importer ma progression', 'استيراد تقدّمي', 'Importi taqaddom')}<input id="import-progress" type="file" accept="application/json,.json"></label>${button('reset-progress', `${icon('close')}${bi('Effacer ma progression', 'مسح تقدّمي', 'Mse7 taqaddom dyali')}`, 'button secondary-button danger-button')}</div>
+      <p class="small-note">${icon('info')}${bi('Sauvegarde locale sur cet appareil. Le transfert est manuel. Importer deux fois le même fichier ne crée pas de doublons.', 'الحفظ محلي على هذا الجهاز، والنقل يدوي. استيراد الملف نفسه مرتين لا يكرّر النتائج.', 'Sauvegarde f had appareil. Ttransfert b yeddek. Ila importiti nefs lfichier jouj merrat, ma kaytzadch doublon.')}</p><p id="import-status" role="status"></p>
+    </section>`;
 }
 
 function render(focus = false) {
@@ -198,7 +209,45 @@ function bind() {
     if (action === 'restart-result') beginSession(result.topic, result.mode);
     if (action === 'retry-result') beginSession(result.topic, result.mode, true);
     if (action === 'export-progress') downloadJSON(`habibi-progression-${new Date().toISOString().slice(0, 10)}.json`, exportProgress());
+    if (action === 'reset-progress') confirmProgressReset();
   }));
+}
+function confirmProgressReset() {
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `<form id="reset-progress-form" class="modal-content">
+    <h2 id="reset-progress-title">${bi('Effacer ma progression ?', 'هل تريد مسح تقدّمك؟', 'Tmse7 taqaddom dyalek ?')}</h2>
+    <p id="reset-progress-details">${bi('Les résultats et les cours découverts seront effacés sur cet appareil. Les leçons créées seront conservées.', 'ستُمسح النتائج والدروس التي اطّلعت عليها على هذا الجهاز. ستبقى الدروس التي أنشأتها محفوظة.', 'Ghadi ytmes7o nnata2ij w dorous li qriti f had appareil. Dorous li sewwebti ghadi ybqaw.')}</p>
+    <label class="form-field reset-confirmation-field" for="reset-progress-confirmation">${bi('Écris « 7bibi » pour confirmer.', 'اكتب 7bibi للتأكيد.', 'Kteb 7bibi bach t2ekked.')}<input id="reset-progress-confirmation" type="text" required pattern="7bibi" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="reset-progress-details reset-progress-error" autofocus></label>
+    <p id="reset-progress-error" class="reset-progress-error" role="alert" hidden></p>
+    <div class="modal-actions"><button type="button" class="button secondary-button" id="cancel-progress-reset">${bi('Annuler', 'إلغاء', 'Lghi')}</button><button type="submit" class="button danger-button" id="confirm-progress-reset" disabled>${bi('Effacer ma progression', 'مسح تقدّمي', 'Mse7 taqaddom dyali')}</button></div>
+  </form>`;
+  modal.setAttribute('aria-labelledby', 'reset-progress-title');
+  modal.addEventListener('close', () => modal.removeAttribute('aria-labelledby'), { once: true });
+  const input = document.getElementById('reset-progress-confirmation');
+  const confirmButton = document.getElementById('confirm-progress-reset');
+  const error = document.getElementById('reset-progress-error');
+  input.addEventListener('input', () => {
+    confirmButton.disabled = input.value !== '7bibi';
+    error.hidden = true;
+    error.textContent = '';
+  });
+  document.getElementById('cancel-progress-reset').onclick = () => modal.close();
+  document.getElementById('reset-progress-form').onsubmit = event => {
+    event.preventDefault();
+    if (input.value !== '7bibi') { input.focus(); return; }
+    if (!resetProgress()) {
+      error.innerHTML = bi('Impossible d’enregistrer la remise à zéro. Ta progression est conservée. Réessaie.', 'تعذّر حفظ إعادة الضبط. لم يُمسح تقدّمك. حاول مجددًا.', 'Ma qdernach nsejjlo remise à zéro. Taqaddom dyalek baqi. 3awed jerreb.');
+      error.hidden = false;
+      return;
+    }
+    modal.close();
+    session = null;
+    result = null;
+    render(true);
+    window.scrollTo(0, 0);
+    toast('Ta progression a été effacée sur cet appareil.', 'مُسح تقدّمك على هذا الجهاز.', 'Taqaddom dyalek tmesa7 f had appareil.');
+  };
+  modal.showModal();
 }
 function quitSession() {
   const modal = document.getElementById('modal');

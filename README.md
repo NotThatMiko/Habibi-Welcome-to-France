@@ -76,6 +76,8 @@ Le transfert est **manuel**, sans synchronisation automatique. Les réponses vé
 
 Les données sont conservées dans le stockage local du navigateur. Effacer les données du navigateur, changer de navigateur ou d’adresse du site ne transfère pas les données. Penser à exporter régulièrement. Les fichiers de progression ne contiennent pas de compte ni de mot de passe.
 
+Pour repartir de zéro sur cet appareil, choisir **Effacer ma progression** dans **Ma progression**, puis écrire exactement `7bibi` et confirmer. Les réponses, les séances et les cours marqués comme découverts sont effacés ; les leçons créées et les préférences sont conservées. Une sauvegarde exportée peut être réimportée ensuite.
+
 ## Fichiers
 
 | Fichier | Rôle |

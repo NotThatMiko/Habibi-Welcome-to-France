@@ -59,6 +59,13 @@ export function importProgress(data) {
   persist(); return added;
 }
 export function exportProgress() { return { version: 1, type: 'habibi-progress', exportedAt: new Date().toISOString(), events: structuredClone(state.events) }; }
+export function resetProgress() {
+  const previous = state.events;
+  state.events = [];
+  if (persist()) return true;
+  state.events = previous;
+  return false;
+}
 export function saveDraft(lesson) {
   const index = state.drafts.findIndex(l => l.id === lesson.id);
   if (index < 0) state.drafts.push(lesson); else state.drafts[index] = lesson;

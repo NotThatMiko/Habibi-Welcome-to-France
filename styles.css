@@ -96,9 +96,16 @@
   margin-top: 56px;
 }
 
-.lesson-topbar,
-.quiz-topbar {
+.context-topbar {
   justify-content: space-between;
+}
+
+.context-header-label {
+  min-width: 0;
+}
+
+.context-topbar .topbar-tools {
+  flex-shrink: 0;
 }
 
 .header-back-link {
@@ -116,27 +123,43 @@
   }
 }
 
-.course-card,
-.quiz-card {
+.theme-card {
   display: block;
 }
 
-.course-card .theme-card-bottom,
-.quiz-card .theme-card-bottom {
+.theme-card .theme-card-bottom {
   margin-top: 20px;
 }
 
-.course-card:hover .card-link,
-.quiz-card:hover .card-link {
+.theme-card:hover .card-link {
   color: #9a4d39;
 }
 
-.quiz-heading h1 {
+.practice-heading h1,
+.progression-heading h1 {
   margin-top: 0;
 }
 
-.quiz-themes {
+.practice-themes {
   margin-top: 30px;
+}
+
+.danger-button {
+  color: #873f32;
+  border-color: #dca590;
+  background: #f7e8df;
+}
+
+.danger-button:hover:not(:disabled) {
+  background: #f0d8ca;
+}
+
+.reset-confirmation-field {
+  margin-top: 22px;
+}
+
+.reset-progress-error {
+  color: #873f32;
 }
 
 .page-footer > span:only-child {
