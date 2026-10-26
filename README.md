@@ -41,7 +41,7 @@ Référence : [création d’un site GitHub Pages](https://docs.github.com/en/pa
 - Atelier de création de leçons, validation, essai local, import et export.
 - Interface responsive, lecture de droite à gauche pour l’arabe, navigation au clavier et prise en compte de la réduction des animations.
 
-L’écoute utilise les voix françaises de l’appareil quand la synthèse vocale est disponible. Des fichiers audio français sont aussi fournis pour les contenus publiés : ils prennent le relais dans les navigateurs sans synthèse vocale, notamment l’instance de Navigateur Mi signalée sur Android. Ils sont chargés à la demande et nécessitent une connexion. Les nouvelles leçons créées localement utilisent la synthèse vocale tant que leurs enregistrements n’ont pas été ajoutés au site. Les lettres arabes sont un repère approximatif, pas une transcription phonétique exacte. Les variantes de darija peuvent être ajustées avec le professeur.
+L’écoute utilise en priorité les fichiers audio français fournis avec les contenus publiés, même quand le navigateur propose la synthèse vocale. La lecture commence directement au clic : elle ne dépend pas d’une voix du navigateur susceptible de rester silencieuse sans signaler d’erreur. Les fichiers sont chargés à la demande et nécessitent une connexion. Les nouvelles leçons créées localement utilisent la synthèse vocale tant que leurs enregistrements n’ont pas été ajoutés au site. Les lettres arabes sont un repère approximatif, pas une transcription phonétique exacte. Les variantes de darija peuvent être ajustées avec le professeur.
 
 La darija et l’arabe n’expriment souvent pas « être » au présent avec un verbe. Les correspondances sont donc données en contexte ; « on », « vous » et les groupes masculins ou féminins sont expliqués.
 
@@ -105,7 +105,7 @@ Un test navigateur sans dépendance est fourni dans `tests/browser_check.py`. Il
 python3 tests/browser_check.py
 ```
 
-`python3 tests/audio_playback_check.py` vérifie séparément le décodage des enregistrements et leur lecture réelle dans Chrome avec les API de synthèse vocale désactivées. Le son de ce test est coupé ; le décodage et l’avancement du lecteur sont contrôlés. Cela ne remplace pas une vérification sur le téléphone Android concerné.
+`python3 tests/audio_playback_check.py` vérifie séparément le décodage des enregistrements et leur lecture réelle dans Chrome avec les API de synthèse vocale absentes, silencieuses ou en erreur. Le son de ce test est coupé ; le décodage et l’avancement du lecteur sont contrôlés. Cela ne remplace pas une vérification dans le navigateur du téléphone concerné.
 
 ## Préparer l’audio d’une nouvelle leçon publiée
 

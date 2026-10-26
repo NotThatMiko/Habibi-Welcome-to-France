@@ -1,4 +1,4 @@
-"""Decode bundled audio and test actual HTML media playback without Web Speech.
+"""Test actual media playback with absent, silent and failing speech engines.
 
 Uses the dedicated Chrome profile and local server described in browser_check.py.
 Playback is muted, but HTMLMediaElement.play is real, not mocked.
@@ -25,10 +25,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--url', default=ORIGIN)
     base = parser.parse_args().url.rstrip('/')
-    browser = Browser()
+    browser = Browser(fresh_page=True)
     scripts = []
     try:
         scripts.append(browser.call('Page.addScriptToEvaluateOnNewDocument', {'source': """
+          (()=>{
           Object.defineProperty(window,'speechSynthesis',{value:undefined,configurable:true});
           Object.defineProperty(window,'SpeechSynthesisUtterance',{value:undefined,configurable:true});
           window.__mediaPlays=[];
@@ -37,6 +38,7 @@ def main():
             this.muted=true;window.__player=this;window.__mediaPlays.push(this.src);
             return realPlay.call(this);
           };
+          })();
         """})['identifier'])
         browser.errors.clear()  # Ignore exceptions already present in the previous test document.
         browser.navigate(base + '/?audio-test=' + str(time.time_ns()) + '#/cours/pronoms')
@@ -87,25 +89,39 @@ def main():
         browser.wait("document.querySelector('#toast.visible')?.textContent.includes('ce texte')")
         assert browser.js('window.__mediaPlays.length===3')
 
-        # An exposed but failing speech engine must also fall back to media.
-        scripts.append(browser.call('Page.addScriptToEvaluateOnNewDocument', {'source': """
-          Object.defineProperty(window,'SpeechSynthesisUtterance',{value:class {constructor(text){this.text=text}},configurable:true});
-          Object.defineProperty(window,'speechSynthesis',{value:{
-            getVoices:()=>[],cancel:()=>{},addEventListener:()=>{},
-            speak:utterance=>utterance.onerror({error:'synthesis-unavailable'})
-          },configurable:true});
-        """})['identifier'])
-        browser.navigate(base + '/?audio-error-test=' + str(time.time_ns()) + '#/cours/etre-avoir')
-        browser.wait("!!document.querySelector('[data-speak=\"être\"]')")
-        user_click(browser, '[data-speak="être"]')
-        browser.wait('window.__player?.currentTime>.05&&window.__player.readyState>=2')
+        # A silent engine never emits an error: recordings must bypass it.
+        for mode in ['silent', 'error']:
+            scripts.append(browser.call('Page.addScriptToEvaluateOnNewDocument', {'source': """
+              window.__speechCalls=[];
+              Object.defineProperty(window,'SpeechSynthesisUtterance',{value:class {constructor(text){this.text=text}},configurable:true});
+              Object.defineProperty(window,'speechSynthesis',{value:{
+                getVoices:()=>[],cancel:()=>{},addEventListener:()=>{},
+                speak:utterance=>{
+                  window.__speechCalls.push(utterance.text);
+                  if(%s==='error')utterance.onerror({error:'synthesis-unavailable'});
+                }
+              },configurable:true});
+            """ % json.dumps(mode)})['identifier'])
+            browser.navigate(base + '/?audio-' + mode + '-test=' + str(time.time_ns()) + '#/cours/etre-avoir')
+            browser.wait("!!document.querySelector('[data-speak=\"être\"]')")
+            assert browser.js('!!window.speechSynthesis&&!!window.SpeechSynthesisUtterance')
+            for word in ['être', 'avoir']:
+                user_click(browser, '[data-speak="' + word + '"]')
+                browser.wait('window.__player?.currentTime>.05&&window.__player.readyState>=2')
+                assert browser.js('window.__speechCalls.length===0'), 'Bundled audio must bypass speech synthesis'
+                assert browser.js("!document.querySelector('#toast.visible')")
+            if mode == 'error':
+                # New custom texts still use speech synthesis, with explicit errors.
+                browser.js("import('./js/ui.js').then(ui=>ui.speak('Texte de test sans enregistrement.'))")
+                browser.wait("document.querySelector('#toast.visible')?.textContent.includes('ce texte')")
+                assert browser.js('window.__speechCalls.length===1')
         assert not browser.errors, browser.errors
-        print(json.dumps({'decoded_recordings': decoded, 'media_without_speech': 'passed', 'navigation_stop': 'passed', 'quiz_choices_silent': 'passed', 'speech_error_fallback': 'passed'}))
+        print(json.dumps({'decoded_recordings': decoded, 'media_without_speech': 'passed', 'navigation_stop': 'passed', 'quiz_choices_silent': 'passed', 'silent_speech_bypassed': 'passed', 'failing_speech_bypassed': 'passed', 'custom_speech_error': 'passed'}))
     finally:
         for identifier in scripts:
             browser.call('Page.removeScriptToEvaluateOnNewDocument', {'identifier': identifier})
         browser.navigate(base + '/?audio-test-cleanup=' + str(time.time_ns()))
-        browser.sock.close()
+        browser.close()
 
 
 if __name__ == '__main__':

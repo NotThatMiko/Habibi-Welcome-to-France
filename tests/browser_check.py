@@ -18,10 +18,17 @@ ORIGIN = "http://127.0.0.1:4173"
 
 
 class Browser:
-    def __init__(self):
-        with urllib.request.urlopen("http://127.0.0.1:9223/json/list") as response:
-            pages = json.load(response)
-        page = next(p for p in pages if p["type"] == "page")
+    def __init__(self, fresh_page=False):
+        self.owned_page = fresh_page
+        if fresh_page:
+            request = urllib.request.Request('http://127.0.0.1:9223/json/new?about:blank', method='PUT')
+            with urllib.request.urlopen(request) as response:
+                page = json.load(response)
+        else:
+            with urllib.request.urlopen("http://127.0.0.1:9223/json/list") as response:
+                pages = json.load(response)
+            page = next(p for p in pages if p["type"] == "page")
+        self.page_id = page['id']
         path = page["webSocketDebuggerUrl"].split(":9223", 1)[1]
         self.sock = socket.create_connection(("127.0.0.1", 9223), timeout=15)
         key = base64.b64encode(os.urandom(16)).decode()
@@ -37,7 +44,16 @@ class Browser:
         self.call("Page.enable")
         self.call("Network.enable")
         self.call("Network.setCacheDisabled", {"cacheDisabled": True})
-        self.call("Page.addScriptToEvaluateOnNewDocument", {"source": "window.__docId=crypto.randomUUID(); window.__spoken=[]; if(window.speechSynthesis) window.speechSynthesis.speak = u => window.__spoken.push({text:u.text,lang:u.lang,rate:u.rate});"})
+        self.call("Page.addScriptToEvaluateOnNewDocument", {"source": """
+          (()=>{
+          window.__docId=crypto.randomUUID();window.__spoken=[];window.__played=[];
+          if(window.speechSynthesis)window.speechSynthesis.speak=u=>window.__spoken.push({text:u.text,lang:u.lang,rate:u.rate});
+          const realPlay=HTMLMediaElement.prototype.play;
+          HTMLMediaElement.prototype.play=function(){
+            this.muted=true;window.__played.push(this.src);return realPlay.call(this);
+          };
+          })();
+        """})
 
     def exact(self, n):
         data = bytearray()
@@ -47,6 +63,13 @@ class Browser:
                 raise RuntimeError("Chrome connection closed")
             data.extend(part)
         return bytes(data)
+
+    def close(self):
+        try:
+            if self.owned_page:
+                urllib.request.urlopen('http://127.0.0.1:9223/json/close/' + self.page_id).close()
+        finally:
+            self.sock.close()
 
     def receive(self):
         chunks = []
@@ -127,6 +150,13 @@ class Browser:
     def click(self, selector):
         assert self.js(f"!!document.querySelector({json.dumps(selector)})"), selector
         self.js(f"document.querySelector({json.dumps(selector)}).click()")
+
+    def assert_recording(self, text):
+        assert self.js("""(async()=>{
+          const {recordedAudio}=await import('./js/audio-manifest.js');
+          const filename=recordedAudio[%s];
+          return typeof filename==='string'&&window.__played.at(-1)===new URL('./assets/audio/fr/'+filename,location.href).href;
+        })()""" % json.dumps(text, ensure_ascii=False)), text
 
     def screenshot(self, filename, width, height):
         self.call("Emulation.setDeviceMetricsOverride", {"width": width, "height": height, "deviceScaleFactor": 1, "mobile": width < 761})
@@ -225,31 +255,29 @@ def check_learning_questions(browser):
 
     browser.route('quiz/pronoms')
     browser.click('[data-action="start"]')
-    browser.js('window.__spoken=[]')
+    browser.js('window.__spoken=[];window.__played=[]')
     for _ in range(9):
         q = browser.js("(async()=>(await import('./js/content.js')).makeBaseQuestions().pronoms.quiz.find(q=>q.prompt===document.querySelector('.question-text').textContent))()")
         assert browser.js("document.querySelectorAll('.question-panel-header .question-listen').length===1&&!document.querySelector('.question-audio,.question-panel .audio-button,.answer-option .option-volume,.answer-option [data-speak]')")
-        spoken = browser.js('window.__spoken.length')
+        played = browser.js('window.__played.length')
         for index in range(len(q['options'])):
             browser.click('[data-answer="' + str(index) + '"]')
-        assert browser.js('window.__spoken.length') == spoken, 'Selecting Darija answers must stay silent'
+        assert browser.js('window.__played.length===%d&&window.__spoken.length===0' % played), 'Selecting Darija answers must stay silent'
         browser.click('.question-panel-header .question-listen')
-        assert browser.js('window.__spoken.at(-1).text') == q['audio']
-        assert browser.js('window.__spoken.at(-1).lang') == 'fr-FR'
+        browser.assert_recording(q['audio'])
         browser.js("[...document.querySelectorAll('[data-answer]')].find(b=>b.children[1].textContent===" + json.dumps(q['correct'], ensure_ascii=False) + ").click()")
-        assert browser.js('window.__spoken.length') == spoken + 1
+        assert browser.js('window.__played.length===%d&&window.__spoken.length===0' % (played + 1))
         browser.click('[data-action="check"]')
         browser.click('.answer-feedback-heading .question-listen')
-        assert browser.js('window.__spoken.at(-1).text') == q['audio']
-        assert browser.js('window.__spoken.at(-1).lang') == 'fr-FR'
+        browser.assert_recording(q['audio'])
         browser.click('[data-action="next"]')
     assert browser.js("document.querySelector('.score-ring>span').textContent.replace(/\\s/g,'')") == '9/9'
 
     browser.route('quiz/etre-avoir')
     browser.click('[data-action="start"]')
-    spoken = browser.js('window.__spoken.length')
+    played = browser.js('window.__played.length')
     browser.click('[data-answer="0"]')
-    assert browser.js('window.__spoken.length') == spoken
+    assert browser.js('window.__played.length===%d&&window.__spoken.length===0' % played)
 
     browser.route('exercices/pronoms')
     browser.click('[data-action="start"]')
@@ -261,15 +289,14 @@ def check_learning_questions(browser):
             hint = browser.js("(() => {const hint=document.querySelector('.question-hint');return {text:hint.textContent,dir:hint.dir,lang:hint.lang}})()")
             assert hint == {'text': q['hint'][language], 'dir': 'rtl' if language == 'ar' else 'ltr', 'lang': 'ar' if language == 'ar' else 'ary-Latn'}, hint
         browser.js("[...document.querySelectorAll('[data-answer]')].find(b=>b.children[1].textContent===" + json.dumps(q['correct'], ensure_ascii=False) + ").click()")
-        assert browser.js('window.__spoken.at(-1).text') == q['sentence']
-        assert browser.js('window.__spoken.at(-1).lang') == 'fr-FR'
+        browser.assert_recording(q['sentence'])
         browser.click('[data-action="check"]')
         browser.click('[data-action="next"]')
     assert browser.js("document.querySelector('.score-ring>span').textContent.replace(/\\s/g,'')") == '9/9'
 
 
 def main():
-    browser = Browser()
+    browser = Browser(fresh_page=True)
     browser.navigate(ORIGIN + '/?qa=' + str(time.time_ns()))
     browser.wait("!!document.querySelector('.theme-card')")
     browser.js("localStorage.clear()")
@@ -295,9 +322,9 @@ def main():
     browser.js("document.querySelector('#language').value='darija'; document.querySelector('#language').dispatchEvent(new Event('change'))")
     assert browser.js("document.querySelector('.word-top .translation').textContent") == "ana"
     browser.click('[data-speak="Je"]')
-    assert browser.js("window.__spoken.at(-1).lang") == "fr-FR"
-    assert browser.js("window.__spoken.at(-1).text") == "Je"
-    checks.append("9 pronouns, course read state, Arabic/Darija switch, French speech dispatch")
+    browser.assert_recording('Je')
+    assert browser.js('window.__spoken.length===0')
+    checks.append("9 pronouns, course read state, Arabic/Darija switch, French recording playback")
 
     browser.route("quiz/pronoms")
     browser.click('[data-action="start"]')
@@ -405,7 +432,7 @@ def main():
     browser.screenshot('mobile.png', 390, 844)
     assert not browser.errors, browser.errors
     print(json.dumps({'status': 'PASS', 'checks': checks, 'runtime_errors': browser.errors, 'screenshots': ['artifacts/desktop.png', 'artifacts/mobile.png']}, ensure_ascii=False, indent=2))
-    browser.sock.close()
+    browser.close()
 
 
 if __name__ == '__main__':

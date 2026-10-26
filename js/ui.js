@@ -48,7 +48,6 @@ export function toast(fr, ar, darija) {
 let voices = [];
 let recordedPlayer, activeUtterance;
 let playbackRequest = 0;
-let preferRecordings = false;
 const loadVoices = () => {
   try { voices = window.speechSynthesis?.getVoices() || []; }
   catch { voices = []; }
@@ -98,9 +97,11 @@ export function speak(text) {
   stopAudio();
   if (!text) return;
   const request = playbackRequest;
-  if (preferRecordings && playRecording(text, request)) return;
+  // Use bundled audio directly in the click gesture, even when a browser
+  // exposes a speech engine that can silently fail (including on iOS).
+  if (playRecording(text, request)) return;
   if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
-    if (!playRecording(text, request)) unavailable();
+    unavailable();
     return;
   }
   loadVoices();
@@ -108,13 +109,12 @@ export function speak(text) {
   activeUtterance = utterance;
   const french = voices.find(v => v.lang === 'fr-FR') || voices.find(v => v.lang.startsWith('fr'));
   if (french) utterance.voice = french;
-  const fallback = () => {
+  const failed = () => {
     if (request !== playbackRequest) return;
-    preferRecordings = true;
     activeUtterance = null;
-    if (!playRecording(text, request)) unavailable();
+    unavailable();
   };
   utterance.onend = () => { if (activeUtterance === utterance) activeUtterance = null; };
-  utterance.onerror = event => { if (!['interrupted', 'canceled'].includes(event.error)) fallback(); };
-  try { window.speechSynthesis.speak(utterance); } catch { fallback(); }
+  utterance.onerror = event => { if (!['interrupted', 'canceled'].includes(event.error)) failed(); };
+  try { window.speechSynthesis.speak(utterance); } catch { failed(); }
 }
